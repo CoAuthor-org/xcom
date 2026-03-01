@@ -74,6 +74,9 @@ async function main() {
 
   const entry = entries[0];
   const text = (entry.text || '').trim();
+  const textPreview = text.length > 60 ? text.slice(0, 60) + '…' : text;
+  console.log('Entry to post:', { id: entry.id, textLength: text.length, preview: textPreview, hasImage: !!entry.image_url });
+
   if (!text) {
     const { error: updateErr } = await supabase
       .from('entries')
@@ -110,10 +113,20 @@ async function main() {
 
   try {
     const opts = mediaId ? { media: { media_ids: [mediaId] } } : undefined;
+    console.log('Calling X API v2 tweet...', mediaId ? '(with media)' : '(text only)');
     const { data: tweet } = await rw.v2.tweet(text, opts);
     console.log('Posted tweet id:', tweet?.id, 'entry:', entry.id);
   } catch (e) {
+    const errDetail = {
+      message: e.message,
+      name: e.name,
+      code: e.code,
+      rateLimit: e.rateLimit,
+      ...(e.data != null && { data: e.data }),
+      ...(e.response != null && { responseStatus: e.response?.status, responseData: e.response?.data })
+    };
     console.error('X API post error:', e.message || e);
+    console.error('X API error detail:', JSON.stringify(errDetail, null, 2));
     process.exit(1);
   }
 
