@@ -811,13 +811,10 @@
                 return;
             }
             
-            const reversedEntries = [...entries].reverse();
-            
-            entriesList.innerHTML = reversedEntries.map((entry, displayIndex) => {
-                const storageIndex = entries.length - 1 - displayIndex;
+            entriesList.innerHTML = entries.map((entry) => {
                 const topicLabel = (entry.topicRef && entry.part) ? `<span class="entry-topic-ref">${escapeHtml(entry.topicRef)} (${entry.part}/2)</span>` : '';
                 return `
-                <div class="entry-card" data-entry-index="${storageIndex}">
+                <div class="entry-card" data-entry-id="${escapeHtml(String(entry.id))}">
                     <div class="entry-view">
                         ${topicLabel}
                         <div class="entry-text">${escapeHtml(entry.text)}</div>
@@ -848,7 +845,7 @@
             }).join('');
             
             entriesList.querySelectorAll('.entry-card').forEach(card => {
-                const storageIndex = parseInt(card.dataset.entryIndex, 10);
+                const entryId = card.dataset.entryId;
                 const view = card.querySelector('.entry-view');
                 const editDiv = card.querySelector('.entry-edit');
                 const editInput = card.querySelector('.entry-edit-input');
@@ -881,7 +878,7 @@
                         return;
                     }
                     try {
-                        const response = await fetch(`/entries/${storageIndex}`, {
+                        const response = await fetch(`/entries/${entryId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ text })
@@ -901,7 +898,7 @@
                 deleteBtn.addEventListener('click', async () => {
                     if (!confirm('Delete this entry?')) return;
                     try {
-                        const response = await fetch(`/entries/${storageIndex}`, { method: 'DELETE' });
+                        const response = await fetch(`/entries/${entryId}`, { method: 'DELETE' });
                         if (response.ok) {
                             showMessage('Deleted', 'success');
                             loadEntries();
