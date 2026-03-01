@@ -100,15 +100,32 @@ async function expandText(text) {
 
 // RAG: notes → tweets (grok-3-mini for cost efficiency)
 const RAG_MODEL = 'grok-3-mini';
-const RAG_MAX_OUTPUT_TOKENS = 3000;  // allow more tweets per segment (prompt can ask for 1–2 or many)
+const RAG_MAX_OUTPUT_TOKENS = 3000;  // when multiple tweets allowed
+const RAG_SINGLE_POST_MAX_TOKENS = 400;  // one post per run
 const RAG_TEMPERATURE = 0.4;
 
 const DEFAULT_NOTES_TO_TWEETS_PROMPT = 'Convert the notes below into x.com-style posts. Each post ≤280 chars. Output only the posts, one per line. No numbering or labels.';
+const ONE_POST_INSTRUCTION = '\n\nOutput exactly ONE post only. No second post, no "Post 2", no numbering. Your post MUST be 280 characters or fewer. Complete the full sentence within that limit—never output a cut-off or incomplete sentence. Nothing else.';
 
+/** Remove [Attach: ...] placeholders from tweet text; these are handled by per-tweet image upload in the app. */
+function stripAttachPlaceholders(s) {
+    if (!s || typeof s !== 'string') return s;
+    return s.replace(/\s*\[\s*Attach\s*:\s*[^\]]*\]\s*/gi, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** Trim to tweet length at a sentence or word boundary; never cut mid-word or mid-sentence. */
 function trimToLimit(s, limit = 280) {
-    if (s.length <= limit) return s;
-    const lastSpace = s.lastIndexOf(' ', limit);
-    if (lastSpace > limit * 0.7) return s.slice(0, lastSpace).trim();
+    if (!s || s.length <= limit) return s;
+    const inRange = s.slice(0, limit + 1);
+    const minSentenceLen = 80;
+    const lastSentenceEnd = Math.max(
+        inRange.lastIndexOf('.'),
+        inRange.lastIndexOf('?'),
+        inRange.lastIndexOf('!')
+    );
+    if (lastSentenceEnd >= minSentenceLen) return s.slice(0, lastSentenceEnd + 1).trim();
+    const lastSpace = inRange.lastIndexOf(' ');
+    if (lastSpace >= 0) return s.slice(0, lastSpace).trim();
     return s.slice(0, limit).trim();
 }
 
@@ -123,15 +140,15 @@ function parseNotesToTweetsOutput(raw) {
         let topicRef = null;
         let part = null;
         if (post1Match) {
-            text = trimToLimit(post1Match[2].trim());
+            text = trimToLimit(stripAttachPlaceholders(post1Match[2].trim()));
             topicRef = topicFrom(post1Match);
             part = 1;
         } else if (post2Match) {
-            text = trimToLimit(post2Match[2].trim());
+            text = trimToLimit(stripAttachPlaceholders(post2Match[2].trim()));
             topicRef = topicFrom(post2Match);
             part = 2;
         } else {
-            text = trimToLimit(line);
+            text = trimToLimit(stripAttachPlaceholders(line));
         }
         if (text.length > 0) {
             const looksLikeHeading = text.length < 80 && !text.includes('?') && !text.includes('#') && !text.includes('.');
@@ -146,12 +163,16 @@ async function notesToTweets(chunkText, options = {}) {
     if (!client) {
         throw new Error('Grok client not initialized. Set XAI_API_KEY.');
     }
-    const systemPrompt = (options.systemPrompt && options.systemPrompt.trim()) || DEFAULT_NOTES_TO_TWEETS_PROMPT;
+    let systemPrompt = (options.systemPrompt && options.systemPrompt.trim()) || DEFAULT_NOTES_TO_TWEETS_PROMPT;
+    const onePostOnly = options.onePostOnly === true;
+    if (onePostOnly) {
+        systemPrompt = systemPrompt + ONE_POST_INSTRUCTION;
+    }
     const userContent = chunkText;
     try {
         const completion = await client.chat.completions.create({
             model: RAG_MODEL,
-            max_tokens: RAG_MAX_OUTPUT_TOKENS,
+            max_tokens: onePostOnly ? RAG_SINGLE_POST_MAX_TOKENS : RAG_MAX_OUTPUT_TOKENS,
             temperature: RAG_TEMPERATURE,
             messages: [
                 { role: 'system', content: systemPrompt },
@@ -159,7 +180,10 @@ async function notesToTweets(chunkText, options = {}) {
             ]
         });
         const raw = completion.choices[0]?.message?.content || '';
-        const tweets = parseNotesToTweetsOutput(raw);
+        let tweets = parseNotesToTweetsOutput(raw);
+        if (onePostOnly && tweets.length > 1) {
+            tweets = [tweets[0]];
+        }
         return {
             success: true,
             tweets,
@@ -183,5 +207,7 @@ module.exports = {
     enhanceText,
     summarizeText,
     expandText,
-    notesToTweets
+    notesToTweets,
+    trimToTweetLength: trimToLimit,
+    stripAttachPlaceholders
 };

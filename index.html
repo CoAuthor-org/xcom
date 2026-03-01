@@ -166,6 +166,16 @@
             color: #e7e9ea;
         }
         
+        .entry-image {
+            display: block;
+            max-width: 100%;
+            max-height: 180px;
+            width: auto;
+            border-radius: 8px;
+            margin-top: 8px;
+            object-fit: contain;
+        }
+        
         .entry-footer {
             display: flex;
             justify-content: space-between;
@@ -224,11 +234,29 @@
         }
         
         .entry-footer .edit-btn,
+        .entry-footer .attach-image-btn,
         .entry-footer .delete-btn {
             background: transparent;
             border: 1px solid #38444d;
             padding: 6px 12px;
             font-size: 0.8rem;
+        }
+        
+        .entry-footer .attach-image-btn:hover {
+            border-color: #1d9bf0;
+            color: #1d9bf0;
+        }
+        
+        .entry-footer .remove-image-btn {
+            background: transparent;
+            border: 1px solid #38444d;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+        
+        .entry-footer .remove-image-btn:hover {
+            border-color: #f4212e;
+            color: #f4212e;
         }
         
         .entry-footer .delete-btn:hover {
@@ -374,6 +402,28 @@
             border-color: #1d9bf0;
         }
         
+        .notes-count-label {
+            font-size: 0.85rem;
+            color: #8b98a5;
+            white-space: nowrap;
+        }
+        
+        .posts-count-input {
+            width: 3.5rem;
+            padding: 6px 8px;
+            border: 1px solid #38444d;
+            border-radius: 6px;
+            background: #15202b;
+            color: #e7e9ea;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        
+        .posts-count-input:focus {
+            outline: none;
+            border-color: #1d9bf0;
+        }
+        
         .generate-from-notes-btn {
             background: #0d9488;
             flex-shrink: 0;
@@ -402,6 +452,67 @@
         
         .generate-from-notes-btn.loading .btn-text {
             display: none;
+        }
+        
+        .reset-pointer-btn {
+            flex-shrink: 0;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            border: 1px solid #38444d;
+            border-radius: 6px;
+            background: #15202b;
+            color: #8b98a5;
+            cursor: pointer;
+        }
+        
+        .reset-pointer-btn:hover:not(:disabled) {
+            background: #192734;
+            color: #e7e9ea;
+            border-color: #1d9bf0;
+        }
+        
+        .reset-pointer-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .rag-actions-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            align-items: center;
+        }
+        
+        .rag-action-btn {
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .rag-action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .copy-all-btn {
+            background: #1d9bf0;
+            color: #fff;
+        }
+        
+        .copy-all-btn:hover:not(:disabled) {
+            background: #1a8cd8;
+        }
+        
+        .delete-all-btn {
+            background: #f4212e;
+            color: #fff;
+        }
+        
+        .delete-all-btn:hover:not(:disabled) {
+            background: #e01e2a;
         }
         
         .rag-results {
@@ -558,9 +669,14 @@
                         <select id="notesSelect" class="notes-select">
                             <option value="">Select a note file...</option>
                         </select>
+                        <label class="notes-count-label" for="postsCountInput">Posts:</label>
+                        <input type="number" id="postsCountInput" class="posts-count-input" min="1" max="50" value="10" title="Number of posts to generate (1 LLM run per post)">
                         <button type="button" class="generate-from-notes-btn" id="generateFromNotesBtn" disabled>
                             <span class="btn-text">From notes</span>
                             <span class="spinner"></span>
+                        </button>
+                        <button type="button" class="reset-pointer-btn" id="resetPointerBtn" disabled title="Reset pointer to top of this document. Next run will start from the beginning.">
+                            Reset pointer
                         </button>
                     </div>
                     <div class="notes-log-header">
@@ -568,6 +684,14 @@
                         <button type="button" class="notes-log-clear" id="notesLogClear">Clear</button>
                     </div>
                     <div class="notes-log-terminal" id="notesLog"></div>
+                    <div class="rag-actions-row">
+                        <button type="button" class="rag-action-btn copy-all-btn" id="copyAllRagBtn" disabled title="Copy all generated posts (one per line, paste into Excel/Sheets)">
+                            Copy all
+                        </button>
+                        <button type="button" class="rag-action-btn delete-all-btn" id="deleteAllEntriesBtn" title="Delete all saved posts and clear the list">
+                            Delete all
+                        </button>
+                    </div>
                     <div class="rag-results" id="ragResults"></div>
                 </div>
             </div>
@@ -600,6 +724,9 @@
         const ragResults = document.getElementById('ragResults');
         const notesLog = document.getElementById('notesLog');
         const notesLogClear = document.getElementById('notesLogClear');
+        const copyAllRagBtn = document.getElementById('copyAllRagBtn');
+        const deleteAllEntriesBtn = document.getElementById('deleteAllEntriesBtn');
+        const resetPointerBtn = document.getElementById('resetPointerBtn');
         
         let llmEnabled = false;
 
@@ -629,13 +756,19 @@
                 notesSelect.innerHTML = '<option value="">Select a note file...</option>' +
                     notesFiles.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
                 generateFromNotesBtn.disabled = !llmEnabled || notesFiles.length === 0;
+                if (resetPointerBtn) resetPointerBtn.disabled = !notesSelect.value;
             } catch (e) {
                 notesSelect.innerHTML = '<option value="">Select a note file...</option>';
             }
         }
+        
+        notesSelect.addEventListener('change', () => {
+            if (resetPointerBtn) resetPointerBtn.disabled = !notesSelect.value;
+        });
 
         function renderRagTweets(tweets) {
             lastRagTweets = tweets || [];
+            if (copyAllRagBtn) copyAllRagBtn.disabled = lastRagTweets.length === 0;
             if (lastRagTweets.length === 0) {
                 ragResults.innerHTML = '<div class="rag-empty">No tweets generated. Add .md files to the notes folder and try again.</div>';
                 return;
@@ -670,6 +803,55 @@
             });
         }
 
+        copyAllRagBtn.addEventListener('click', async () => {
+            if (lastRagTweets.length === 0) return;
+            const lines = lastRagTweets.map(t => (typeof t === 'string' ? t : t.text).trim()).filter(Boolean);
+            const text = lines.join('\n');
+            try {
+                await navigator.clipboard.writeText(text);
+                showMessage(`Copied ${lines.length} post(s). Paste into Excel or Google Sheets (one per row).`, 'success');
+            } catch (e) {
+                showMessage('Copy failed', 'error');
+            }
+        });
+
+        resetPointerBtn.addEventListener('click', async () => {
+            const file = notesSelect.value;
+            if (!file) return;
+            try {
+                const res = await fetch('/notes/progress/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    showMessage(data.message || `Pointer reset for ${file}. Next run will start from the top.`, 'success');
+                } else {
+                    showMessage(data.error || 'Reset failed', 'error');
+                }
+            } catch (e) {
+                showMessage(SERVER_UNREACHABLE_MSG, 'error');
+            }
+        });
+
+        deleteAllEntriesBtn.addEventListener('click', async () => {
+            if (!confirm('Delete all saved posts? This cannot be undone.')) return;
+            try {
+                const res = await fetch('/entries/all', { method: 'DELETE' });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    showMessage('All posts deleted', 'success');
+                    loadEntries();
+                    renderRagTweets([]);
+                } else {
+                    showMessage(data.error || 'Delete failed', 'error');
+                }
+            } catch (e) {
+                showMessage(SERVER_UNREACHABLE_MSG, 'error');
+            }
+        });
+
         async function copyRagTweet(btn, text) {
             try {
                 await navigator.clipboard.writeText(text);
@@ -689,10 +871,11 @@
                     showMessage('Saved to list!', 'success');
                     loadEntries();
                 } else {
-                    showMessage('Save failed', 'error');
+                    const data = await response.json().catch(() => ({}));
+                    showMessage(data.error || 'Save failed', 'error');
                 }
             } catch (e) {
-                showMessage('Save failed', 'error');
+                showMessage(e.message || 'Save failed', 'error');
             }
         }
 
@@ -719,10 +902,12 @@
             let lastLogIndex = 0;
             let pollInterval = null;
             try {
+                const postsCountInput = document.getElementById('postsCountInput');
+                const postsCount = Math.min(50, Math.max(1, parseInt(postsCountInput?.value, 10) || 10));
                 const startRes = await fetch('/generate-from-notes', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ file })
+                    body: JSON.stringify({ file, postsCount })
                 });
                 const startData = await startRes.json().catch(() => ({}));
                 if (!startRes.ok) {
@@ -813,11 +998,13 @@
             
             entriesList.innerHTML = entries.map((entry) => {
                 const topicLabel = (entry.topicRef && entry.part) ? `<span class="entry-topic-ref">${escapeHtml(entry.topicRef)} (${entry.part}/2)</span>` : '';
+                const imageHtml = entry.imageUrl ? `<img class="entry-image" src="${escapeHtml(entry.imageUrl)}" alt="Attached" loading="lazy">` : '';
                 return `
                 <div class="entry-card" data-entry-id="${escapeHtml(String(entry.id))}">
                     <div class="entry-view">
                         ${topicLabel}
                         <div class="entry-text">${escapeHtml(entry.text)}</div>
+                        ${imageHtml}
                         <div class="entry-footer">
                             <span class="entry-timestamp">${formatDate(entry.timestamp)}</span>
                             <div class="entry-actions">
@@ -829,10 +1016,13 @@
                                     Copy
                                 </button>
                                 <button type="button" class="edit-btn">Edit</button>
+                                <button type="button" class="attach-image-btn" title="Upload image for this tweet">Image</button>
+                                ${entry.imageUrl ? '<button type="button" class="remove-image-btn" title="Remove attached image">Remove image</button>' : ''}
                                 <button type="button" class="delete-btn">Delete</button>
                             </div>
                         </div>
                     </div>
+                    <input type="file" accept="image/*" class="entry-image-input" hidden>
                     <div class="entry-edit">
                         <textarea maxlength="280" class="entry-edit-input">${escapeHtml(entry.text)}</textarea>
                         <div class="edit-actions">
@@ -852,8 +1042,61 @@
                 const copyBtn = card.querySelector('.copy-btn');
                 const editBtn = card.querySelector('.edit-btn');
                 const deleteBtn = card.querySelector('.delete-btn');
+                const attachImageBtn = card.querySelector('.attach-image-btn');
+                const removeImageBtn = card.querySelector('.remove-image-btn');
+                const imageInput = card.querySelector('.entry-image-input');
                 const saveEditBtn = card.querySelector('.save-edit-btn');
                 const cancelEditBtn = card.querySelector('.cancel-edit-btn');
+                
+                if (attachImageBtn && imageInput) {
+                    attachImageBtn.addEventListener('click', () => imageInput.click());
+                    imageInput.addEventListener('change', async () => {
+                        const file = imageInput.files && imageInput.files[0];
+                        if (!file || !file.type.startsWith('image/')) {
+                            showMessage('Please select an image file', 'error');
+                            imageInput.value = '';
+                            return;
+                        }
+                        const formData = new FormData();
+                        formData.append('image', file);
+                        attachImageBtn.disabled = true;
+                        try {
+                            const res = await fetch(`/entries/${entryId}/image`, { method: 'POST', body: formData });
+                            const data = await res.json().catch(() => ({}));
+                            if (res.ok) {
+                                showMessage('Image attached', 'success');
+                                loadEntries();
+                            } else {
+                                showMessage(data.error || 'Upload failed', 'error');
+                            }
+                        } catch (e) {
+                            showMessage(SERVER_UNREACHABLE_MSG, 'error');
+                        }
+                        attachImageBtn.disabled = false;
+                        imageInput.value = '';
+                    });
+                }
+                
+                if (removeImageBtn) {
+                    removeImageBtn.addEventListener('click', async () => {
+                        if (!confirm('Remove the attached image?')) return;
+                        removeImageBtn.disabled = true;
+                        try {
+                            const res = await fetch(`/entries/${entryId}/image`, { method: 'DELETE' });
+                            const data = await res.json().catch(() => ({}));
+                            if (res.ok) {
+                                showMessage('Image removed', 'success');
+                                loadEntries();
+                            } else {
+                                showMessage(data.error || 'Remove failed', 'error');
+                                removeImageBtn.disabled = false;
+                            }
+                        } catch (e) {
+                            showMessage(SERVER_UNREACHABLE_MSG, 'error');
+                            removeImageBtn.disabled = false;
+                        }
+                    });
+                }
                 
                 copyBtn.addEventListener('click', () => {
                     const text = card.querySelector('.entry-text').textContent;
