@@ -1,0 +1,14 @@
+{
+  "name": "xcom",
+  "version": "1.0.0",
+  "description": "Simple text posting app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "express": "^4.18.2",
+    "openai": "^4.77.0"
+  }
+}
