@@ -199,6 +199,41 @@
             color: #6e7681;
             margin-bottom: 4px;
         }
+
+        .entry-queue {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .entry-queue-label {
+            font-size: 0.7rem;
+            color: #6e7681;
+            margin-right: 2px;
+        }
+
+        .queue-btn {
+            padding: 4px 10px;
+            font-size: 0.72rem;
+            border: 1px solid #38444d;
+            background: transparent;
+            color: #8899a6;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .queue-btn:hover {
+            background: #38444d;
+            color: #e7e9ea;
+        }
+
+        .queue-btn.active {
+            background: #1d9bf0;
+            border-color: #1d9bf0;
+            color: #fff;
+        }
         
         .rag-topic-ref {
             display: block;
@@ -999,12 +1034,20 @@
             entriesList.innerHTML = entries.map((entry) => {
                 const topicLabel = (entry.topicRef && entry.part) ? `<span class="entry-topic-ref">${escapeHtml(entry.topicRef)} (${entry.part}/2)</span>` : '';
                 const imageHtml = entry.imageUrl ? `<img class="entry-image" src="${escapeHtml(entry.imageUrl)}" alt="Attached" loading="lazy">` : '';
+                const q = entry.queue || '';
+                const queueHtml = `
+                        <div class="entry-queue">
+                            <span class="entry-queue-label">Queue:</span>
+                            <button type="button" class="queue-btn ${q === '10am' ? 'active' : ''}" data-queue="10am">10am</button>
+                            <button type="button" class="queue-btn ${q === '6pm' ? 'active' : ''}" data-queue="6pm">6pm</button>
+                        </div>`;
                 return `
                 <div class="entry-card" data-entry-id="${escapeHtml(String(entry.id))}">
                     <div class="entry-view">
                         ${topicLabel}
                         <div class="entry-text">${escapeHtml(entry.text)}</div>
                         ${imageHtml}
+                        ${queueHtml}
                         <div class="entry-footer">
                             <span class="entry-timestamp">${formatDate(entry.timestamp)}</span>
                             <div class="entry-actions">
@@ -1047,6 +1090,32 @@
                 const imageInput = card.querySelector('.entry-image-input');
                 const saveEditBtn = card.querySelector('.save-edit-btn');
                 const cancelEditBtn = card.querySelector('.cancel-edit-btn');
+                const queueBtns = card.querySelectorAll('.queue-btn');
+                
+                queueBtns.forEach((btn) => {
+                    btn.addEventListener('click', async () => {
+                        const queue = btn.dataset.queue;
+                        if (!queue) return;
+                        btn.disabled = true;
+                        try {
+                            const res = await fetch(`/entries/${entryId}/queue`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ queue })
+                            });
+                            const data = await res.json().catch(() => ({}));
+                            if (res.ok) {
+                                queueBtns.forEach((b) => b.classList.toggle('active', b.dataset.queue === queue));
+                                showMessage(`Queue: ${queue}`, 'success');
+                            } else {
+                                showMessage(data.error || 'Failed to set queue', 'error');
+                            }
+                        } catch (e) {
+                            showMessage(SERVER_UNREACHABLE_MSG, 'error');
+                        }
+                        btn.disabled = false;
+                    });
+                });
                 
                 if (attachImageBtn && imageInput) {
                     attachImageBtn.addEventListener('click', () => imageInput.click());

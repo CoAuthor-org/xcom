@@ -143,7 +143,9 @@ function rowToEntry(row) {
         timestamp: row.created_at,
         topicRef: row.topic_ref ?? undefined,
         part: row.part ?? undefined,
-        imageUrl: row.image_url ?? undefined
+        imageUrl: row.image_url ?? undefined,
+        postedAt: row.posted_at ?? undefined,
+        queue: row.queue ?? undefined
     };
 }
 
@@ -162,7 +164,7 @@ async function getEntries() {
     if (supabase) {
         const { data, error } = await supabase
             .from('entries')
-            .select('id, text, created_at, topic_ref, part, image_url')
+            .select('id, text, created_at, topic_ref, part, image_url, posted_at, queue')
             .order('created_at', { ascending: false });
         if (error) throw error;
         return (data || []).map(rowToEntry);
@@ -189,9 +191,10 @@ async function insertEntry(entry) {
                 text: entry.text,
                 topic_ref: entry.topicRef ?? null,
                 part: entry.part ?? null,
-                image_url: entry.imageUrl ?? null
+                image_url: entry.imageUrl ?? null,
+                queue: entry.queue ?? null
             })
-            .select('id, text, created_at, topic_ref, part, image_url')
+            .select('id, text, created_at, topic_ref, part, image_url, posted_at, queue')
             .single();
         if (error) throw error;
         return rowToEntry(data);
@@ -213,7 +216,7 @@ async function updateEntryById(id, text) {
             .from('entries')
             .update({ text })
             .eq('id', id)
-            .select('id, text, created_at, topic_ref, part, image_url')
+            .select('id, text, created_at, topic_ref, part, image_url, posted_at, queue')
             .single();
         if (error) throw error;
         return data ? rowToEntry(data) : null;
@@ -225,6 +228,21 @@ async function updateEntryById(id, text) {
     data.entries[index].timestamp = new Date().toISOString();
     fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
     return { id: String(index), ...data.entries[index] };
+}
+
+async function updateEntryQueueById(id, queue) {
+    if (supabase) {
+        const value = queue === '10am' || queue === '6pm' ? queue : null;
+        const { data, error } = await supabase
+            .from('entries')
+            .update({ queue: value })
+            .eq('id', id)
+            .select('id, text, created_at, topic_ref, part, image_url, posted_at, queue')
+            .single();
+        if (error) throw error;
+        return data ? rowToEntry(data) : null;
+    }
+    return null;
 }
 
 async function deleteEntryById(id) {
@@ -361,6 +379,22 @@ app.delete('/entries/all', async (req, res) => {
     } catch (e) {
         const errMsg = formatSupabaseError(e);
         console.error('DELETE /entries/all:', errMsg);
+        res.status(500).json({ error: errMsg });
+    }
+});
+
+app.patch('/entries/:id/queue', async (req, res) => {
+    if (requireSupabaseStorage(req, res)) return;
+    const id = req.params.id;
+    const queue = req.body && (req.body.queue === '10am' || req.body.queue === '6pm') ? req.body.queue : null;
+    if (!id) return res.status(400).json({ error: 'Invalid entry id' });
+    try {
+        const entry = await updateEntryQueueById(id, queue);
+        if (!entry) return res.status(404).json({ error: 'Entry not found' });
+        res.json({ success: true, message: queue ? `Queue set to ${queue}` : 'Queue cleared', entry });
+    } catch (e) {
+        const errMsg = formatSupabaseError(e);
+        console.error('PATCH /entries/:id/queue:', errMsg);
         res.status(500).json({ error: errMsg });
     }
 });
