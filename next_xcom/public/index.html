@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XCH</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #15202b;
+            min-height: 100vh;
+            color: #fff;
+        }
+        
+        .app {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            min-height: 100vh;
+        }
+        
+        @media (max-width: 768px) {
+            .app {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .panel {
+            padding: 24px;
+            border-right: 1px solid #38444d;
+        }
+        
+        .panel:last-child {
+            border-right: none;
+        }
+        
+        .panel-header {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #38444d;
+        }
+        
+        .input-section {
+            background: #192734;
+            border-radius: 16px;
+            padding: 20px;
+        }
+        
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 16px;
+            border: 2px solid #38444d;
+            border-radius: 12px;
+            background: #15202b;
+            color: #fff;
+            font-size: 1rem;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        textarea:focus {
+            border-color: #1d9bf0;
+        }
+        
+        textarea::placeholder {
+            color: #8899a6;
+        }
+        
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+        }
+        
+        .char-count {
+            color: #8899a6;
+            font-size: 0.875rem;
+        }
+        
+        .char-count.warning {
+            color: #ffad1f;
+        }
+        
+        .char-count.danger {
+            color: #f4212e;
+        }
+        
+        button {
+            background: #1d9bf0;
+            color: #fff;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 9999px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        button:hover {
+            background: #1a8cd8;
+        }
+        
+        button:disabled {
+            background: #1d9bf0;
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .message {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            display: none;
+        }
+        
+        .message.success {
+            background: rgba(0, 186, 124, 0.2);
+            color: #00ba7c;
+            display: block;
+        }
+        
+        .message.error {
+            background: rgba(244, 33, 46, 0.2);
+            color: #f4212e;
+            display: block;
+        }
+        
+        .entries-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+        
+        .entry-card {
+            background: #192734;
+            border-radius: 12px;
+            padding: 16px;
+            position: relative;
+            transition: background 0.2s;
+        }
+        
+        .entry-card:hover {
+            background: #22303c;
+        }
+
+        .entry-card.drag-over {
+            outline: 2px dashed #1d9bf0;
+            outline-offset: 2px;
+            background: rgba(29, 155, 240, 0.08);
+        }
+
+        .entry-card.drag-over::after {
+            content: 'Drop image to attach';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            font-size: 0.9rem;
+            color: #1d9bf0;
+            pointer-events: none;
+        }
+        
+        .entry-text {
+            font-size: 0.95rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin-bottom: 12px;
+            color: #e7e9ea;
+        }
+        
+        .entry-image {
+            display: block;
+            max-width: 100%;
+            max-height: 180px;
+            width: auto;
+            border-radius: 8px;
+            margin-top: 8px;
+            object-fit: contain;
+        }
+        
+        .entry-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .entry-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .entry-timestamp {
+            font-size: 0.75rem;
+            color: #8899a6;
+        }
+        
+        .entry-topic-ref {
+            display: block;
+            font-size: 0.7rem;
+            color: #6e7681;
+            margin-bottom: 4px;
+        }
+
+        .entry-queue {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+
+        .entry-queue-label {
+            font-size: 0.7rem;
+            color: #6e7681;
+            margin-right: 2px;
+        }
+
+        .queue-btn {
+            padding: 4px 10px;
+            font-size: 0.72rem;
+            border: 1px solid #38444d;
+            background: transparent;
+            color: #8899a6;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .queue-btn:hover {
+            background: #38444d;
+            color: #e7e9ea;
+        }
+
+        .queue-btn.active {
+            background: #1d9bf0;
+            border-color: #1d9bf0;
+            color: #fff;
+        }
+        
+        .rag-topic-ref {
+            display: block;
+            font-size: 0.7rem;
+            color: #6e7681;
+            margin-bottom: 4px;
+        }
+        
+        .copy-btn {
+            background: transparent;
+            border: 1px solid #38444d;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .copy-btn:hover {
+            background: #38444d;
+            border-color: #38444d;
+        }
+        
+        .copy-btn.copied {
+            background: rgba(0, 186, 124, 0.2);
+            border-color: #00ba7c;
+            color: #00ba7c;
+        }
+        
+        .copy-icon {
+            width: 14px;
+            height: 14px;
+        }
+        
+        .entry-footer .edit-btn,
+        .entry-footer .attach-image-btn,
+        .entry-footer .delete-btn {
+            background: transparent;
+            border: 1px solid #38444d;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+        
+        .entry-footer .attach-image-btn:hover {
+            border-color: #1d9bf0;
+            color: #1d9bf0;
+        }
+        
+        .entry-footer .remove-image-btn {
+            background: transparent;
+            border: 1px solid #38444d;
+            padding: 6px 12px;
+            font-size: 0.8rem;
+        }
+        
+        .entry-footer .remove-image-btn:hover {
+            border-color: #f4212e;
+            color: #f4212e;
+        }
+        
+        .entry-footer .delete-btn:hover {
+            border-color: #f4212e;
+            color: #f4212e;
+        }
+        
+        .entry-edit {
+            display: none;
+        }
+        
+        .entry-edit textarea {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            border: 2px solid #38444d;
+            border-radius: 8px;
+            background: #15202b;
+            color: #fff;
+            font-size: 0.9rem;
+            resize: vertical;
+            margin-bottom: 8px;
+        }
+        
+        .entry-edit textarea:focus {
+            outline: none;
+            border-color: #1d9bf0;
+        }
+        
+        .edit-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .edit-actions button {
+            padding: 6px 14px;
+            font-size: 0.85rem;
+        }
+        
+        .cancel-edit-btn {
+            background: transparent;
+            border: 1px solid #38444d;
+        }
+        
+        .empty-state {
+            text-align: center;
+            color: #8899a6;
+            padding: 40px 20px;
+        }
+        
+        .empty-state-icon {
+            font-size: 3rem;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+        
+        .entries-count {
+            font-size: 0.875rem;
+            color: #8899a6;
+            font-weight: 400;
+        }
+
+        .entries-count .queue-count {
+            margin-left: 8px;
+            font-size: 0.8rem;
+        }
+
+        .entries-count .queue-count span {
+            margin-left: 4px;
+        }
+
+        .entries-count .queue-count .q-10am { color: #1d9bf0; }
+        .entries-count .queue-count .q-6pm { color: #8b5cf6; }
+        
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .generate-btn {
+            background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .generate-btn:hover {
+            background: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%);
+        }
+        
+        .generate-btn:disabled {
+            background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+            opacity: 0.5;
+        }
+        
+        .generate-btn .spinner {
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+        
+        .generate-btn.loading .spinner {
+            display: block;
+        }
+        
+        .generate-btn.loading .btn-text {
+            display: none;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .sparkle-icon {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .notes-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid #38444d;
+        }
+        
+        .notes-label {
+            display: block;
+            font-size: 0.8rem;
+            color: #8899a6;
+            margin-bottom: 8px;
+        }
+        
+        .notes-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .notes-select {
+            flex: 1;
+            min-width: 0;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 2px solid #38444d;
+            background: #15202b;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        
+        .notes-select:focus {
+            outline: none;
+            border-color: #1d9bf0;
+        }
+        
+        .notes-count-label {
+            font-size: 0.85rem;
+            color: #8b98a5;
+            white-space: nowrap;
+        }
+        
+        .posts-count-input {
+            width: 3.5rem;
+            padding: 6px 8px;
+            border: 1px solid #38444d;
+            border-radius: 6px;
+            background: #15202b;
+            color: #e7e9ea;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        
+        .posts-count-input:focus {
+            outline: none;
+            border-color: #1d9bf0;
+        }
+        
+        .generate-from-notes-btn {
+            background: #0d9488;
+            flex-shrink: 0;
+            padding: 8px 16px;
+        }
+        
+        .generate-from-notes-btn:hover {
+            background: #0f766e;
+        }
+        
+        .generate-from-notes-btn:disabled {
+            background: #0d9488;
+            opacity: 0.5;
+        }
+        
+        .generate-from-notes-btn.loading .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+        }
+        
+        .generate-from-notes-btn.loading .btn-text {
+            display: none;
+        }
+        
+        .reset-pointer-btn {
+            flex-shrink: 0;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            border: 1px solid #38444d;
+            border-radius: 6px;
+            background: #15202b;
+            color: #8b98a5;
+            cursor: pointer;
+        }
+        
+        .reset-pointer-btn:hover:not(:disabled) {
+            background: #192734;
+            color: #e7e9ea;
+            border-color: #1d9bf0;
+        }
+        
+        .reset-pointer-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .rag-actions-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            align-items: center;
+        }
+        
+        .rag-action-btn {
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .rag-action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .copy-all-btn {
+            background: #1d9bf0;
+            color: #fff;
+        }
+        
+        .copy-all-btn:hover:not(:disabled) {
+            background: #1a8cd8;
+        }
+        
+        .delete-all-btn {
+            background: #f4212e;
+            color: #fff;
+        }
+        
+        .delete-all-btn:hover:not(:disabled) {
+            background: #e01e2a;
+        }
+        
+        .rag-results {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .rag-tweet-card {
+            background: #15202b;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        
+        .rag-tweet-card .text {
+            flex: 1;
+            min-width: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .rag-tweet-card .actions {
+            flex-shrink: 0;
+            display: flex;
+            gap: 4px;
+        }
+        
+        .rag-tweet-card .mini-copy-btn {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            border-radius: 6px;
+            background: transparent;
+            border: 1px solid #38444d;
+        }
+        
+        .rag-tweet-card .mini-copy-btn:hover {
+            background: #38444d;
+        }
+        
+        .rag-tweet-card .mini-save-btn {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+            border-radius: 6px;
+            background: #1d9bf0;
+        }
+        
+        .rag-empty {
+            color: #8899a6;
+            font-size: 0.85rem;
+            padding: 8px 0;
+        }
+        
+        .notes-log-terminal {
+            margin-top: 12px;
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            color: #c9d1d9;
+            max-height: 220px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        
+        .notes-log-terminal .log-line {
+            margin-bottom: 2px;
+        }
+        
+        .notes-log-terminal .log-line.time {
+            color: #8b949e;
+        }
+        
+        .notes-log-terminal .log-line.msg {
+            color: #58a6ff;
+        }
+        
+        .notes-log-terminal .log-line.err {
+            color: #f85149;
+        }
+        
+        .notes-log-terminal .log-line.ok {
+            color: #3fb950;
+        }
+        
+        .notes-log-terminal:empty::before {
+            content: 'Logs will appear here when you run "From notes"...';
+            color: #484f58;
+        }
+        
+        .notes-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 0.7rem;
+            color: #8b949e;
+        }
+        
+        .notes-log-clear {
+            background: transparent;
+            border: 1px solid #30363d;
+            color: #8b949e;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+        
+        .notes-log-clear:hover {
+            color: #c9d1d9;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="panel">
+            <h1 class="panel-header">Compose</h1>
+            <div class="input-section">
+                <textarea 
+                    id="textInput" 
+                    maxlength="280" 
+                    placeholder="What's on your mind? (280 characters max)"
+                ></textarea>
+                <div class="footer">
+                    <span class="char-count" id="charCount">0 / 280</span>
+                    <div class="btn-group">
+                        <button class="generate-btn" id="generateBtn">
+                            <svg class="sparkle-icon" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z"/>
+                            </svg>
+                            <span class="btn-text">Generate</span>
+                            <span class="spinner"></span>
+                        </button>
+                        <button id="submitBtn" disabled>Save</button>
+                    </div>
+                </div>
+                <div class="message" id="message"></div>
+                <div class="notes-section">
+                    <label class="notes-label">Notes → Tweets (RAG)</label>
+                    <div class="notes-row">
+                        <select id="notesSelect" class="notes-select">
+                            <option value="">Select a note file...</option>
+                        </select>
+                        <label class="notes-count-label" for="postsCountInput">Posts:</label>
+                        <input type="number" id="postsCountInput" class="posts-count-input" min="1" max="50" value="10" title="Number of posts to generate (1 LLM run per post)">
+                        <button type="button" class="generate-from-notes-btn" id="generateFromNotesBtn" disabled>
+                            <span class="btn-text">From notes</span>
+                            <span class="spinner"></span>
+                        </button>
+                        <button type="button" class="reset-pointer-btn" id="resetPointerBtn" disabled title="Reset pointer to top of this document. Next run will start from the beginning.">
+                            Reset pointer
+                        </button>
+                    </div>
+                    <div class="notes-log-header">
+                        <span>Live log</span>
+                        <button type="button" class="notes-log-clear" id="notesLogClear">Clear</button>
+                    </div>
+                    <div class="notes-log-terminal" id="notesLog"></div>
+                    <div class="rag-actions-row">
+                        <button type="button" class="rag-action-btn copy-all-btn" id="copyAllRagBtn" disabled title="Copy all generated posts (one per line, paste into Excel/Sheets)">
+                            Copy all
+                        </button>
+                        <button type="button" class="rag-action-btn delete-all-btn" id="deleteAllEntriesBtn" title="Delete all saved posts and clear the list">
+                            Delete all
+                        </button>
+                    </div>
+                    <div class="rag-results" id="ragResults"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h1 class="panel-header">
+                Saved Texts 
+                <span class="entries-count" id="entriesCount">(0)</span>
+            </h1>
+            <div class="entries-list" id="entriesList">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📝</div>
+                    <p>No saved texts yet.<br>Start by composing one!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const textInput = document.getElementById('textInput');
+        const charCount = document.getElementById('charCount');
+        const submitBtn = document.getElementById('submitBtn');
+        const generateBtn = document.getElementById('generateBtn');
+        const message = document.getElementById('message');
+        const entriesList = document.getElementById('entriesList');
+        const entriesCount = document.getElementById('entriesCount');
+        const notesSelect = document.getElementById('notesSelect');
+        const generateFromNotesBtn = document.getElementById('generateFromNotesBtn');
+        const ragResults = document.getElementById('ragResults');
+        const notesLog = document.getElementById('notesLog');
+        const notesLogClear = document.getElementById('notesLogClear');
+        const copyAllRagBtn = document.getElementById('copyAllRagBtn');
+        const deleteAllEntriesBtn = document.getElementById('deleteAllEntriesBtn');
+        const resetPointerBtn = document.getElementById('resetPointerBtn');
+        
+        let llmEnabled = false;
+
+        function appendLog(msg, kind) {
+            const line = document.createElement('div');
+            line.className = 'log-line ' + (kind || 'msg');
+            const t = new Date().toLocaleTimeString('en-US', { hour12: false });
+            line.textContent = `[${t}] ${msg}`;
+            notesLog.appendChild(line);
+            notesLog.scrollTop = notesLog.scrollHeight;
+        }
+
+        function clearNotesLog() {
+            notesLog.innerHTML = '';
+        }
+
+        notesLogClear.addEventListener('click', clearNotesLog);
+        const SERVER_UNREACHABLE_MSG = 'Server not reachable. Run "npm start" and open http://localhost:3000';
+        let notesFiles = [];
+        let lastRagTweets = [];
+
+        async function loadNotesFiles() {
+            try {
+                const response = await fetch('/notes/files');
+                const data = await response.json();
+                notesFiles = data.files || [];
+                notesSelect.innerHTML = '<option value="">Select a note file...</option>' +
+                    notesFiles.map(f => `<option value="${escapeHtml(f)}">${escapeHtml(f)}</option>`).join('');
+                generateFromNotesBtn.disabled = !llmEnabled || notesFiles.length === 0;
+                if (resetPointerBtn) resetPointerBtn.disabled = !notesSelect.value;
+            } catch (e) {
+                notesSelect.innerHTML = '<option value="">Select a note file...</option>';
+            }
+        }
+        
+        notesSelect.addEventListener('change', () => {
+            if (resetPointerBtn) resetPointerBtn.disabled = !notesSelect.value;
+        });
+
+        function renderRagTweets(tweets) {
+            lastRagTweets = tweets || [];
+            if (copyAllRagBtn) copyAllRagBtn.disabled = lastRagTweets.length === 0;
+            if (lastRagTweets.length === 0) {
+                ragResults.innerHTML = '<div class="rag-empty">No tweets generated. Add .md files to the notes folder and try again.</div>';
+                return;
+            }
+            ragResults.innerHTML = lastRagTweets.map((t, i) => {
+                const text = typeof t === 'string' ? t : t.text;
+                const topicLabel = (t.topicRef && t.part) ? `<span class="rag-topic-ref">${escapeHtml(t.topicRef)} (${t.part}/2)</span>` : '';
+                return `
+                <div class="rag-tweet-card">
+                    ${topicLabel}
+                    <span class="text">${escapeHtml(text)}</span>
+                    <div class="actions">
+                        <button type="button" class="mini-copy-btn" data-rag-index="${i}">Copy</button>
+                        <button type="button" class="mini-save-btn" data-rag-index="${i}">Save</button>
+                    </div>
+                </div>
+            `;
+            }).join('');
+            ragResults.querySelectorAll('.mini-copy-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const t = lastRagTweets[parseInt(this.dataset.ragIndex, 10)];
+                    const text = t && (typeof t === 'string' ? t : t.text);
+                    if (text) copyRagTweet(this, text);
+                });
+            });
+            ragResults.querySelectorAll('.mini-save-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const t = lastRagTweets[parseInt(this.dataset.ragIndex, 10)];
+                    const text = t && (typeof t === 'string' ? t : t.text);
+                    if (text) saveRagTweet(text);
+                });
+            });
+        }
+
+        copyAllRagBtn.addEventListener('click', async () => {
+            if (lastRagTweets.length === 0) return;
+            const lines = lastRagTweets.map(t => (typeof t === 'string' ? t : t.text).trim()).filter(Boolean);
+            const text = lines.join('\n');
+            try {
+                await navigator.clipboard.writeText(text);
+                showMessage(`Copied ${lines.length} post(s). Paste into Excel or Google Sheets (one per row).`, 'success');
+            } catch (e) {
+                showMessage('Copy failed', 'error');
+            }
+        });
+
+        resetPointerBtn.addEventListener('click', async () => {
+            const file = notesSelect.value;
+            if (!file) return;
+            try {
+                const res = await fetch('/notes/progress/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    showMessage(data.message || `Pointer reset for ${file}. Next run will start from the top.`, 'success');
+                } else {
+                    showMessage(data.error || 'Reset failed', 'error');
+                }
+            } catch (e) {
+                showMessage(SERVER_UNREACHABLE_MSG, 'error');
+            }
+        });
+
+        deleteAllEntriesBtn.addEventListener('click', async () => {
+            if (!confirm('Delete all saved posts? This cannot be undone.')) return;
+            try {
+                const res = await fetch('/entries/all', { method: 'DELETE' });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    showMessage('All posts deleted', 'success');
+                    loadEntries();
+                    renderRagTweets([]);
+                } else {
+                    showMessage(data.error || 'Delete failed', 'error');
+                }
+            } catch (e) {
+                showMessage(SERVER_UNREACHABLE_MSG, 'error');
+            }
+        });
+
+        async function copyRagTweet(btn, text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                btn.textContent = 'Copied!';
+                setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+            } catch (e) {}
+        }
+
+        async function saveRagTweet(text) {
+            try {
+                const response = await fetch('/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text.substring(0, 280) })
+                });
+                if (response.ok) {
+                    showMessage('Saved to list!', 'success');
+                    loadEntries();
+                } else {
+                    const data = await response.json().catch(() => ({}));
+                    showMessage(data.error || 'Save failed', 'error');
+                }
+            } catch (e) {
+                showMessage(e.message || 'Save failed', 'error');
+            }
+        }
+
+        async function checkLLMStatus() {
+            try {
+                const response = await fetch('/llm/status');
+                const data = await response.json();
+                llmEnabled = data.initialized;
+                generateFromNotesBtn.disabled = !llmEnabled || notesFiles.length === 0;
+            } catch (error) {
+                llmEnabled = false;
+                generateFromNotesBtn.disabled = true;
+            }
+        }
+
+        generateFromNotesBtn.addEventListener('click', async () => {
+            const file = notesSelect.value;
+            if (!file || !llmEnabled) return;
+            generateFromNotesBtn.disabled = true;
+            generateFromNotesBtn.classList.add('loading');
+            ragResults.innerHTML = '<div class="rag-empty">Generating...</div>';
+            clearNotesLog();
+            appendLog(`Starting job for: ${file}`, 'msg');
+            let lastLogIndex = 0;
+            let pollInterval = null;
+            try {
+                const postsCountInput = document.getElementById('postsCountInput');
+                const postsCount = Math.min(50, Math.max(1, parseInt(postsCountInput?.value, 10) || 10));
+                const startRes = await fetch('/generate-from-notes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file, postsCount })
+                });
+                const startData = await startRes.json().catch(() => ({}));
+                if (!startRes.ok) {
+                    appendLog('Request failed: ' + (startData.error || startRes.status), 'err');
+                    renderRagTweets([]);
+                    showMessage(startData.error || 'Generation failed', 'error');
+                    generateFromNotesBtn.disabled = false;
+                    generateFromNotesBtn.classList.remove('loading');
+                    return;
+                }
+                const jobId = startData.jobId;
+                if (!jobId) {
+                    appendLog('No job started (file may have no segments)', 'err');
+                    generateFromNotesBtn.disabled = false;
+                    generateFromNotesBtn.classList.remove('loading');
+                    return;
+                }
+                appendLog('Job started. Polling for progress...', 'msg');
+                const poll = async () => {
+                    try {
+                        const statusRes = await fetch(`/generate-from-notes/status/${jobId}`);
+                        const job = await statusRes.json().catch(() => ({}));
+                        const logs = job.logs || [];
+                        for (let i = lastLogIndex; i < logs.length; i++) {
+                            appendLog(logs[i].msg, logs[i].kind || 'msg');
+                        }
+                        lastLogIndex = logs.length;
+                        if (job.status === 'done') {
+                            if (pollInterval) clearInterval(pollInterval);
+                            pollInterval = null;
+                            renderRagTweets(job.tweets || []);
+                            const saved = job.savedCount != null ? job.savedCount : (job.tweets || []).length;
+                            showMessage(job.tweets && job.tweets.length ? `Generated and saved ${saved} tweet(s)` : 'No new tweets from this run.', 'success');
+                            loadEntries();
+                            generateFromNotesBtn.disabled = false;
+                            generateFromNotesBtn.classList.remove('loading');
+                        } else if (job.status === 'error') {
+                            if (pollInterval) clearInterval(pollInterval);
+                            pollInterval = null;
+                            renderRagTweets([]);
+                            showMessage(job.error || 'Generation failed', 'error');
+                            generateFromNotesBtn.disabled = false;
+                            generateFromNotesBtn.classList.remove('loading');
+                        }
+                    } catch (e) {
+                        if (pollInterval) clearInterval(pollInterval);
+                        pollInterval = null;
+                        appendLog('Poll failed: ' + e.message, 'err');
+                        showMessage(SERVER_UNREACHABLE_MSG, 'error');
+                        generateFromNotesBtn.disabled = false;
+                        generateFromNotesBtn.classList.remove('loading');
+                    }
+                };
+                pollInterval = setInterval(poll, 1500);
+                await poll();
+            } catch (e) {
+                if (pollInterval) clearInterval(pollInterval);
+                appendLog('Failed: ' + e.message, 'err');
+                renderRagTweets([]);
+                showMessage(SERVER_UNREACHABLE_MSG, 'error');
+                generateFromNotesBtn.disabled = false;
+                generateFromNotesBtn.classList.remove('loading');
+            }
+        });
+
+        async function loadEntries() {
+            try {
+                const response = await fetch('/entries');
+                const data = await response.json();
+                renderEntries(data.entries || []);
+            } catch (error) {
+                console.error('Failed to load entries:', error);
+            }
+        }
+
+        function renderEntries(entries) {
+            const total = entries.length;
+            const count10am = entries.filter(e => (e.queue || '') === '10am').length;
+            const count6pm = entries.filter(e => (e.queue || '') === '6pm').length;
+            entriesCount.innerHTML = total === 0
+                ? '(0)'
+                : `(${total})<span class="queue-count"> · <span class="q-10am">10am: ${count10am}</span> · <span class="q-6pm">6pm: ${count6pm}</span></span>`;
+            
+            if (entries.length === 0) {
+                entriesList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📝</div>
+                        <p>No saved texts yet.<br>Start by composing one!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            entriesList.innerHTML = entries.map((entry) => {
+                const topicLabel = (entry.topicRef && entry.part) ? `<span class="entry-topic-ref">${escapeHtml(entry.topicRef)} (${entry.part}/2)</span>` : '';
+                const imageHtml = entry.imageUrl ? `<img class="entry-image" src="${escapeHtml(entry.imageUrl)}" alt="Attached" loading="lazy">` : '';
+                const q = entry.queue || '';
+                const queueHtml = `
+                        <div class="entry-queue">
+                            <span class="entry-queue-label">Queue:</span>
+                            <button type="button" class="queue-btn ${q === '10am' ? 'active' : ''}" data-queue="10am">10am</button>
+                            <button type="button" class="queue-btn ${q === '6pm' ? 'active' : ''}" data-queue="6pm">6pm</button>
+                        </div>`;
+                return `
+                <div class="entry-card" data-entry-id="${escapeHtml(String(entry.id))}" title="Drag an image here to attach">
+                    <div class="entry-view">
+                        ${topicLabel}
+                        <div class="entry-text">${escapeHtml(entry.text)}</div>
+                        ${imageHtml}
+                        ${queueHtml}
+                        <div class="entry-footer">
+                            <span class="entry-timestamp">${formatDate(entry.timestamp)}</span>
+                            <div class="entry-actions">
+                                <button type="button" class="copy-btn">
+                                    <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                    </svg>
+                                    Copy
+                                </button>
+                                <button type="button" class="edit-btn">Edit</button>
+                                <button type="button" class="attach-image-btn" title="Upload image for this tweet">Image</button>
+                                ${entry.imageUrl ? '<button type="button" class="remove-image-btn" title="Remove attached image">Remove image</button>' : ''}
+                                <button type="button" class="delete-btn">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="file" accept="image/*" class="entry-image-input" hidden>
+                    <div class="entry-edit">
+                        <textarea maxlength="280" class="entry-edit-input">${escapeHtml(entry.text)}</textarea>
+                        <div class="edit-actions">
+                            <button type="button" class="save-edit-btn">Save</button>
+                            <button type="button" class="cancel-edit-btn">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            }).join('');
+            
+            entriesList.querySelectorAll('.entry-card').forEach(card => {
+                const entryId = card.dataset.entryId;
+                const view = card.querySelector('.entry-view');
+                const editDiv = card.querySelector('.entry-edit');
+                const editInput = card.querySelector('.entry-edit-input');
+                const copyBtn = card.querySelector('.copy-btn');
+                const editBtn = card.querySelector('.edit-btn');
+                const deleteBtn = card.querySelector('.delete-btn');
+                const attachImageBtn = card.querySelector('.attach-image-btn');
+                const removeImageBtn = card.querySelector('.remove-image-btn');
+                const imageInput = card.querySelector('.entry-image-input');
+                const saveEditBtn = card.querySelector('.save-edit-btn');
+                const cancelEditBtn = card.querySelector('.cancel-edit-btn');
+                const queueBtns = card.querySelectorAll('.queue-btn');
+                
+                queueBtns.forEach((btn) => {
+                    btn.addEventListener('click', async () => {
+                        const queue = btn.dataset.queue;
+                        if (!queue) return;
+                        btn.disabled = true;
+                        try {
+                            const res = await fetch(`/entries/${entryId}/queue`, {
+                                method: 'PATCH',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ queue })
+                            });
+                            const data = await res.json().catch(() => ({}));
+                            if (res.ok) {
+                                queueBtns.forEach((b) => b.classList.toggle('active', b.dataset.queue === queue));
+                                showMessage(`Queue: ${queue}`, 'success');
+                            } else {
+                                showMessage(data.error || 'Failed to set queue', 'error');
+                            }
+                        } catch (e) {
+                            showMessage(SERVER_UNREACHABLE_MSG, 'error');
+                        }
+                        btn.disabled = false;
+                    });
+                });
+                
+                function uploadImageForEntry(file) {
+                    if (!file || !file.type.startsWith('image/')) {
+                        showMessage('Please drop an image file (JPEG, PNG, etc.)', 'error');
+                        return;
+                    }
+                    const formData = new FormData();
+                    formData.append('image', file);
+                    if (attachImageBtn) attachImageBtn.disabled = true;
+                    fetch(`/entries/${entryId}/image`, { method: 'POST', body: formData })
+                        .then(async (res) => {
+                            const data = await res.json().catch(() => ({}));
+                            if (res.ok && data.success) {
+                                showMessage('Image attached', 'success');
+                                loadEntries();
+                            } else {
+                                showMessage(data.error || 'Upload failed', 'error');
+                            }
+                        })
+                        .catch(() => showMessage(SERVER_UNREACHABLE_MSG, 'error'))
+                        .finally(() => {
+                            if (attachImageBtn) attachImageBtn.disabled = false;
+                        });
+                }
+
+                if (attachImageBtn && imageInput) {
+                    attachImageBtn.addEventListener('click', () => imageInput.click());
+                    imageInput.addEventListener('change', async () => {
+                        const file = imageInput.files && imageInput.files[0];
+                        if (!file || !file.type.startsWith('image/')) {
+                            showMessage('Please select an image file', 'error');
+                            imageInput.value = '';
+                            return;
+                        }
+                        uploadImageForEntry(file);
+                        imageInput.value = '';
+                    });
+                }
+
+                // Drag-and-drop: drop image onto entry card to attach
+                let dragCounter = 0;
+                card.addEventListener('dragenter', (e) => {
+                    if (e.dataTransfer.types.includes('Files')) {
+                        e.preventDefault();
+                        dragCounter++;
+                        card.classList.add('drag-over');
+                    }
+                });
+                card.addEventListener('dragleave', (e) => {
+                    if (e.dataTransfer.types.includes('Files')) {
+                        dragCounter--;
+                        if (dragCounter <= 0) {
+                            dragCounter = 0;
+                            card.classList.remove('drag-over');
+                        }
+                    }
+                });
+                card.addEventListener('dragover', (e) => {
+                    if (e.dataTransfer.types.includes('Files')) {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'copy';
+                    }
+                });
+                card.addEventListener('drop', (e) => {
+                    if (e.dataTransfer.types.includes('Files')) {
+                        e.preventDefault();
+                        dragCounter = 0;
+                        card.classList.remove('drag-over');
+                        const file = e.dataTransfer.files && e.dataTransfer.files[0];
+                        if (file) uploadImageForEntry(file);
+                    }
+                });
+                
+                if (removeImageBtn) {
+                    removeImageBtn.addEventListener('click', async () => {
+                        if (!confirm('Remove the attached image?')) return;
+                        removeImageBtn.disabled = true;
+                        try {
+                            const res = await fetch(`/entries/${entryId}/image`, { method: 'DELETE' });
+                            const data = await res.json().catch(() => ({}));
+                            if (res.ok) {
+                                showMessage('Image removed', 'success');
+                                loadEntries();
+                            } else {
+                                showMessage(data.error || 'Remove failed', 'error');
+                                removeImageBtn.disabled = false;
+                            }
+                        } catch (e) {
+                            showMessage(SERVER_UNREACHABLE_MSG, 'error');
+                            removeImageBtn.disabled = false;
+                        }
+                    });
+                }
+                
+                copyBtn.addEventListener('click', () => {
+                    const text = card.querySelector('.entry-text').textContent;
+                    copyText(copyBtn, text);
+                });
+                
+                editBtn.addEventListener('click', () => {
+                    editInput.value = card.querySelector('.entry-text').textContent;
+                    view.style.display = 'none';
+                    editDiv.style.display = 'block';
+                });
+                
+                cancelEditBtn.addEventListener('click', () => {
+                    editDiv.style.display = 'none';
+                    view.style.display = '';
+                });
+                
+                saveEditBtn.addEventListener('click', async () => {
+                    const text = editInput.value.trim();
+                    if (!text || text.length > 280) {
+                        showMessage('Text must be 1–280 characters', 'error');
+                        return;
+                    }
+                    try {
+                        const response = await fetch(`/entries/${entryId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text })
+                        });
+                        if (response.ok) {
+                            showMessage('Updated', 'success');
+                            loadEntries();
+                        } else {
+                            const data = await response.json();
+                            showMessage(data.error || 'Update failed', 'error');
+                        }
+                    } catch (e) {
+                        showMessage(SERVER_UNREACHABLE_MSG, 'error');
+                    }
+                });
+                
+                deleteBtn.addEventListener('click', async () => {
+                    if (!confirm('Delete this entry?')) return;
+                    try {
+                        const response = await fetch(`/entries/${entryId}`, { method: 'DELETE' });
+                        if (response.ok) {
+                            showMessage('Deleted', 'success');
+                            loadEntries();
+                        } else {
+                            const data = await response.json();
+                            showMessage(data.error || 'Delete failed', 'error');
+                        }
+                    } catch (e) {
+                        showMessage(SERVER_UNREACHABLE_MSG, 'error');
+                    }
+                });
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function formatDate(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        async function copyText(button, text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                button.classList.add('copied');
+                button.innerHTML = `
+                    <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    Copied!
+                `;
+                
+                setTimeout(() => {
+                    button.classList.remove('copied');
+                    button.innerHTML = `
+                        <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        Copy
+                    `;
+                }, 2000);
+            } catch (error) {
+                console.error('Failed to copy:', error);
+            }
+        }
+
+        textInput.addEventListener('input', () => {
+            const length = textInput.value.length;
+            charCount.textContent = `${length} / 280`;
+            
+            charCount.classList.remove('warning', 'danger');
+            if (length >= 260) {
+                charCount.classList.add('danger');
+            } else if (length >= 200) {
+                charCount.classList.add('warning');
+            }
+            
+            submitBtn.disabled = length === 0;
+        });
+
+        submitBtn.addEventListener('click', async () => {
+            const text = textInput.value;
+            
+            if (!text || text.length > 280) {
+                showMessage('Text must be between 1 and 280 characters', 'error');
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            
+            try {
+                const response = await fetch('/save', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage('Saved successfully!', 'success');
+                    textInput.value = '';
+                    charCount.textContent = '0 / 280';
+                    charCount.classList.remove('warning', 'danger');
+                    loadEntries();
+                } else {
+                    showMessage(data.error || 'Something went wrong', 'error');
+                }
+            } catch (error) {
+                showMessage(SERVER_UNREACHABLE_MSG, 'error');
+            }
+            
+            submitBtn.disabled = textInput.value.length === 0;
+        });
+
+        generateBtn.addEventListener('click', async () => {
+            const prompt = textInput.value.trim();
+            
+            if (!llmEnabled) {
+                showMessage('AI features not configured. Set XAI_API_KEY.', 'error');
+                return;
+            }
+            
+            generateBtn.disabled = true;
+            generateBtn.classList.add('loading');
+            
+            try {
+                const action = prompt.length > 0 ? 'enhance' : 'generate';
+                const requestPrompt = prompt.length > 0 
+                    ? prompt 
+                    : 'Write an interesting, engaging short thought or observation under 280 characters';
+                
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        prompt: requestPrompt,
+                        action: action
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    textInput.value = data.text.substring(0, 280);
+                    const length = textInput.value.length;
+                    charCount.textContent = `${length} / 280`;
+                    
+                    charCount.classList.remove('warning', 'danger');
+                    if (length >= 260) {
+                        charCount.classList.add('danger');
+                    } else if (length >= 200) {
+                        charCount.classList.add('warning');
+                    }
+                    
+                    submitBtn.disabled = false;
+                    showMessage('Text generated!', 'success');
+                } else {
+                    showMessage(data.error || 'Failed to generate', 'error');
+                }
+            } catch (error) {
+                showMessage(SERVER_UNREACHABLE_MSG, 'error');
+            }
+            
+            generateBtn.disabled = false;
+            generateBtn.classList.remove('loading');
+        });
+
+        function showMessage(text, type) {
+            message.textContent = text;
+            message.className = 'message ' + type;
+            
+            setTimeout(() => {
+                message.className = 'message';
+            }, 3000);
+        }
+
+        loadEntries();
+        checkLLMStatus();
+        loadNotesFiles();
+    </script>
+</body>
+</html>

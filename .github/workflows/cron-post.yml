@@ -18,6 +18,9 @@ env:
 jobs:
   post-next:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: next_xcom
     steps:
       - uses: actions/checkout@v4
 
@@ -26,6 +29,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+          cache-dependency-path: next_xcom/package-lock.json
 
       - name: Install dependencies
         run: npm ci

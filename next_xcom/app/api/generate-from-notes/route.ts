@@ -1,0 +1,151 @@
+import { NextRequest, NextResponse } from "next/server";
+import { isInitialized, notesToTweets, stripAttachPlaceholders, trimToTweetLength } from "@/lib/llm";
+import { requireSupabaseStorage, insertEntry } from "@/lib/entries";
+import {
+  getNotesFilePath,
+  chunkMarkdown,
+  loadNotesToTweetsPrompt,
+  readProgress,
+  writeProgress,
+} from "@/lib/notes";
+import { setJob, nextJobId } from "@/lib/generate-from-notes-jobs";
+import fs from "fs";
+
+export async function POST(request: NextRequest) {
+  const err = requireSupabaseStorage();
+  if (err) {
+    return NextResponse.json({ error: err.error }, { status: 503 });
+  }
+  if (!isInitialized()) {
+    return NextResponse.json(
+      { error: "LLM not configured. Set XAI_API_KEY." },
+      { status: 503 }
+    );
+  }
+  let body: { file?: string; postsCount?: number };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const { file, postsCount: requestedCount } = body;
+  if (!file) {
+    return NextResponse.json(
+      { error: "file is required" },
+      { status: 400 }
+    );
+  }
+  const filePath = getNotesFilePath(file);
+  if (!filePath || !fs.existsSync(filePath)) {
+    return NextResponse.json({ error: "File not found" }, { status: 404 });
+  }
+  const content = fs.readFileSync(filePath, "utf8");
+  const chunks = chunkMarkdown(content);
+  if (chunks.length === 0) {
+    return NextResponse.json({
+      success: true,
+      jobId: null,
+      tweets: [],
+      chunksProcessed: 0,
+    });
+  }
+
+  const postsCount = Math.min(
+    50,
+    Math.max(1, parseInt(String(requestedCount), 10) || 10)
+  );
+  const progress = await readProgress();
+  let startIndex =
+    progress[file] != null
+      ? Math.min(progress[file], chunks.length - 1)
+      : 0;
+  if (startIndex >= chunks.length) startIndex = 0;
+
+  const jobId = nextJobId();
+  const job: import("@/lib/generate-from-notes-jobs").GenerateFromNotesJob = {
+    file,
+    status: "running",
+    logs: [],
+    tweets: [],
+    runsDone: 0,
+    savedCount: 0,
+    usage: { promptTokens: 0, completionTokens: 0 },
+    startIndex,
+    totalChunks: chunks.length,
+    postsCount,
+    error: null,
+  };
+  setJob(jobId, job);
+
+  const systemPrompt = loadNotesToTweetsPrompt();
+  const addLog = (msg: string, kind = "msg") => {
+    job.logs.push({ msg, kind });
+  };
+
+  (async () => {
+    try {
+      addLog(
+        `Starting: ${file}. Generating ${postsCount} post(s), 1 per LLM run. ${chunks.length} segment(s) for context.`
+      );
+      for (let run = 0; run < postsCount; run++) {
+        const chunkIndex = (startIndex + run) % chunks.length;
+        const chunk = chunks[chunkIndex];
+        addLog(
+          `Run ${run + 1}/${postsCount} (segment ${chunkIndex + 1}/${chunks.length}, ${chunk.length} chars) → LLM (1 post)...`
+        );
+        const result = await notesToTweets(chunk, {
+          systemPrompt: systemPrompt ?? undefined,
+          onePostOnly: true,
+        });
+        if (result.usage) {
+          job.usage.promptTokens += result.usage.promptTokens || 0;
+          job.usage.completionTokens += result.usage.completionTokens || 0;
+          addLog(
+            `  tokens: prompt=${result.usage.promptTokens} completion=${result.usage.completionTokens}`
+          );
+        }
+        const tweets = result.tweets || [];
+        const tw = tweets[0];
+        if (!tw) {
+          addLog("  no post from this run", "err");
+        } else {
+          let text = typeof tw === "string" ? tw : tw.text;
+          text = stripAttachPlaceholders(text);
+          const safe =
+            text.length <= 280 ? text : trimToTweetLength(text).slice(0, 280);
+          const entryPayload: { text: string; topicRef?: string; part?: number } = {
+            text: safe,
+          };
+          if (tw.topicRef != null) entryPayload.topicRef = tw.topicRef;
+          if (tw.part != null) entryPayload.part = tw.part;
+          const saved = await insertEntry(entryPayload);
+          job.tweets.push({
+            id: saved.id,
+            text: saved.text,
+            topicRef: saved.topicRef,
+            part: saved.part,
+          });
+          job.savedCount = job.tweets.length;
+          const preview = text.length > 60 ? text.slice(0, 57) + "..." : text;
+          addLog(`  saved post ${job.tweets.length}: "${preview}"`, "ok");
+        }
+        job.runsDone = run + 1;
+      }
+      const prog = await readProgress();
+      prog[file] = (startIndex + postsCount) % chunks.length;
+      await writeProgress(prog);
+      addLog(`Done. Generated ${job.savedCount} post(s) in ${postsCount} run(s).`);
+      job.status = "done";
+    } catch (error) {
+      console.error("generate-from-notes:", (error as Error).message);
+      job.status = "error";
+      job.error = (error as Error).message ?? "Unknown error";
+      addLog(`Error: ${(error as Error).message}`, "err");
+      const prog = await readProgress();
+      prog[file] = startIndex;
+      await writeProgress(prog);
+    }
+  })();
+
+  return NextResponse.json({ success: true, jobId });
+}
