@@ -3,8 +3,8 @@ name: Cron post next tweet
 
 on:
   schedule:
-    - cron: '30 4 * * *'   # 10:00 IST (04:30 UTC) — 10am queue
-    - cron: '30 12 * * *'  # 18:00 IST (12:30 UTC) — 6pm queue
+    - cron: '45 3 * * *'   # 03:45 UTC = 09:15 IST — 45 min early for 10am queue (compensates for GitHub Actions delay)
+    - cron: '45 11 * * *'  # 11:45 UTC = 17:15 IST — 45 min early for 6pm queue (compensates for GitHub Actions delay)
   workflow_dispatch:
     inputs:
       queue:
