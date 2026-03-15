@@ -784,6 +784,46 @@
             color: #fff;
             font-size: 0.9rem;
         }
+        .is-poll-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .is-poll-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .is-poll-toggle input {
+            width: 36px;
+            height: 20px;
+            accent-color: #1d9bf0;
+            cursor: pointer;
+        }
+        .poll-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #1d9bf0;
+            background: rgba(29, 155, 240, 0.15);
+            padding: 2px 8px;
+            border-radius: 6px;
+            margin-left: 6px;
+        }
+        .entry-poll-options {
+            margin-top: 8px;
+            padding: 8px 0;
+            border-top: 1px solid #38444d;
+            font-size: 0.85rem;
+            color: #8b98a5;
+        }
+        .entry-poll-options ul {
+            margin: 4px 0 0 12px;
+            padding: 0;
+        }
         .thread-container {
             background: #1a2d3a;
             border: 1px solid #38444d;
@@ -887,6 +927,12 @@
                             <option value="6">6 posts</option>
                         </select>
                     </div>
+                    <div class="is-poll-row">
+                        <label class="is-poll-toggle">
+                            <input type="checkbox" id="isPollToggle">
+                            <span>Is poll</span>
+                        </label>
+                    </div>
                     <div class="notes-log-header">
                         <span>Live log</span>
                         <button type="button" class="notes-log-clear" id="notesLogClear">Clear</button>
@@ -940,12 +986,19 @@
         const isThreadToggle = document.getElementById('isThreadToggle');
         const threadLengthRow = document.getElementById('threadLengthRow');
         const threadLengthSelect = document.getElementById('threadLengthSelect');
+        const isPollToggle = document.getElementById('isPollToggle');
         
         let llmEnabled = false;
         
         isThreadToggle.addEventListener('change', () => {
             threadLengthRow.style.display = isThreadToggle.checked ? 'flex' : 'none';
+            if (isThreadToggle.checked && isPollToggle) isPollToggle.checked = false;
         });
+        if (isPollToggle) {
+            isPollToggle.addEventListener('change', () => {
+                if (isPollToggle.checked && isThreadToggle.checked) isThreadToggle.checked = false;
+            });
+        }
 
         function appendLog(msg, kind) {
             const line = document.createElement('div');
@@ -1122,10 +1175,12 @@
                 const postsCountInput = document.getElementById('postsCountInput');
                 const postsCount = Math.min(50, Math.max(1, parseInt(postsCountInput?.value, 10) || 10));
                 const isThread = isThreadToggle.checked;
+                const isPoll = isPollToggle && isPollToggle.checked;
                 const threadLength = isThread ? parseInt(threadLengthSelect?.value || '4', 10) : undefined;
                 const body = { file, postsCount };
                 if (isThread) body.isThread = true;
                 if (threadLength) body.threadLength = threadLength;
+                if (isPoll) body.isPoll = true;
                 const startRes = await fetch('/generate-from-notes', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1225,6 +1280,10 @@
         function renderEntryCard(entry, threadPos) {
             const topicLabel = (entry.topicRef && entry.part) ? `<span class="entry-topic-ref">${escapeHtml(entry.topicRef)} (${entry.part}/2)</span>` : '';
             const threadBadge = threadPos ? `<span class="thread-post-badge">Post ${threadPos.index}/${threadPos.total}</span>` : '';
+            const pollBadge = (entry.pollOptions && entry.pollOptions.length >= 2) ? '<span class="poll-badge">Poll</span>' : '';
+            const pollOptionsHtml = (entry.pollOptions && entry.pollOptions.length >= 2)
+                ? `<div class="entry-poll-options">Options: <ul>${entry.pollOptions.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul></div>`
+                : '';
             const imageHtml = entry.imageUrl ? `<img class="entry-image" src="${escapeHtml(entry.imageUrl)}" alt="Attached" loading="lazy">` : '';
             const q = entry.queue || '';
             const queueHtml = `
@@ -1242,7 +1301,9 @@
                     <div class="entry-view">
                         ${threadBadge}
                         ${topicLabel}
+                        ${pollBadge}
                         <div class="entry-text">${escapeHtml(entry.text)}</div>
+                        ${pollOptionsHtml}
                         ${imageHtml}
                         ${queueHtml}
                         <div class="entry-footer">

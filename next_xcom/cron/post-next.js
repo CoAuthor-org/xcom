@@ -104,11 +104,11 @@ async function main() {
     }
   }
 
-  // 2. If no thread, get single standalone post
+  // 2. If no thread, get single standalone post (include poll fields for poll tweets)
   if (entriesToPost.length === 0) {
     const { data: singleEntries, error: singleError } = await supabase
       .from('entries')
-      .select('id, text, image_url')
+      .select('id, text, image_url, poll_options, poll_duration_minutes')
       .eq('queue', slot)
       .is('posted_at', null)
       .is('thread_id', null)
@@ -188,11 +188,12 @@ async function main() {
       process.exit(1);
     }
   } else {
-    // Single post
+    // Single post (may be poll or regular tweet)
     const entry = entriesToPost[0];
     const text = (entry.text || '').trim();
     const textPreview = text.length > 60 ? text.slice(0, 60) + '…' : text;
-    console.log('Entry to post:', { id: entry.id, textLength: text.length, preview: textPreview, hasImage: !!entry.image_url });
+    const isPoll = Array.isArray(entry.poll_options) && entry.poll_options.length >= 2 && entry.poll_options.length <= 4 && entry.poll_duration_minutes > 0;
+    console.log('Entry to post:', { id: entry.id, textLength: text.length, preview: textPreview, hasImage: !!entry.image_url, isPoll });
 
     if (!text) {
       const { error: updateErr } = await supabase
@@ -208,23 +209,33 @@ async function main() {
       process.exit(1);
     }
 
-    let mediaId = null;
-    if (entry.image_url) {
-      try {
-        const response = await fetch(entry.image_url);
-        if (!response.ok) throw new Error(`Image fetch ${response.status}`);
-        const buffer = Buffer.from(await response.arrayBuffer());
-        mediaId = await rw.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' });
-      } catch (e) {
-        console.warn('Media upload failed, posting text only:', e.message);
-      }
-    }
-
     try {
-      const opts = mediaId ? { media: { media_ids: [mediaId] } } : undefined;
-      console.log('Calling X API v2 tweet...', mediaId ? '(with media)' : '(text only)');
-      const { data: tweet } = await rw.v2.tweet(text, opts);
-      console.log('Posted tweet id:', tweet?.id, 'entry:', entry.id);
+      if (isPoll) {
+        const durationMinutes = Math.min(10080, Math.max(5, parseInt(String(entry.poll_duration_minutes), 10) || 1440));
+        const options = entry.poll_options.slice(0, 4).map((o) => (typeof o === 'string' ? o : String(o)).slice(0, 25));
+        console.log('Calling X API v2 tweet (poll)...', options.length, 'options', durationMinutes, 'min');
+        const { data: tweet } = await rw.v2.tweet({
+          text,
+          poll: { duration_minutes: durationMinutes, options },
+        });
+        console.log('Posted poll tweet id:', tweet?.id, 'entry:', entry.id);
+      } else {
+        let mediaId = null;
+        if (entry.image_url) {
+          try {
+            const response = await fetch(entry.image_url);
+            if (!response.ok) throw new Error(`Image fetch ${response.status}`);
+            const buffer = Buffer.from(await response.arrayBuffer());
+            mediaId = await rw.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' });
+          } catch (e) {
+            console.warn('Media upload failed, posting text only:', e.message);
+          }
+        }
+        const opts = mediaId ? { media: { media_ids: [mediaId] } } : undefined;
+        console.log('Calling X API v2 tweet...', mediaId ? '(with media)' : '(text only)');
+        const { data: tweet } = await rw.v2.tweet(text, opts);
+        console.log('Posted tweet id:', tweet?.id, 'entry:', entry.id);
+      }
     } catch (e) {
       const errDetail = {
         message: e.message,

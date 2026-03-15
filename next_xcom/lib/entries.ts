@@ -18,9 +18,12 @@ export interface Entry {
   queue?: string;
   threadId?: string;
   threadIndex?: number;
+  pollOptions?: string[];
+  pollDurationMinutes?: number;
 }
 
 function rowToEntry(row: Record<string, unknown>): Entry {
+  const pollOpts = row.poll_options;
   return {
     id: String(row.id),
     text: String(row.text),
@@ -32,6 +35,8 @@ function rowToEntry(row: Record<string, unknown>): Entry {
     queue: (row.queue as string) ?? undefined,
     threadId: row.thread_id != null ? String(row.thread_id) : undefined,
     threadIndex: row.thread_index != null ? Number(row.thread_index) : undefined,
+    pollOptions: Array.isArray(pollOpts) ? (pollOpts as string[]) : undefined,
+    pollDurationMinutes: row.poll_duration_minutes != null ? Number(row.poll_duration_minutes) : undefined,
   };
 }
 
@@ -49,7 +54,7 @@ export async function getEntries(): Promise<Entry[]> {
   if (supabase) {
     const { data, error } = await supabase
       .from("entries")
-      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue, thread_id, thread_index")
+      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue, thread_id, thread_index, poll_options, poll_duration_minutes")
       .order("created_at", { ascending: false });
     if (error) throw error;
     return (data || []).map(rowToEntry);
@@ -80,6 +85,8 @@ export async function insertEntry(entry: {
   queue?: string | null;
   threadId?: string | null;
   threadIndex?: number | null;
+  pollOptions?: string[] | null;
+  pollDurationMinutes?: number | null;
 }): Promise<Entry> {
   if (supabase) {
     const { data, error } = await supabase
@@ -92,8 +99,10 @@ export async function insertEntry(entry: {
         queue: entry.queue ?? null,
         thread_id: entry.threadId ?? null,
         thread_index: entry.threadIndex ?? null,
+        poll_options: entry.pollOptions ?? null,
+        poll_duration_minutes: entry.pollDurationMinutes ?? null,
       })
-      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue, thread_id, thread_index")
+      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue, thread_id, thread_index, poll_options, poll_duration_minutes")
       .single();
     if (error) throw error;
     return rowToEntry(data);
@@ -109,6 +118,8 @@ export async function insertEntry(entry: {
   if (entry.part != null) newEntry.part = entry.part;
   if (entry.threadId != null) newEntry.threadId = entry.threadId;
   if (entry.threadIndex != null) newEntry.threadIndex = entry.threadIndex;
+  if (entry.pollOptions != null) newEntry.pollOptions = entry.pollOptions;
+  if (entry.pollDurationMinutes != null) newEntry.pollDurationMinutes = entry.pollDurationMinutes;
   data.entries.push(newEntry);
   fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
   return {
@@ -126,7 +137,7 @@ export async function updateEntryById(
       .from("entries")
       .update({ text })
       .eq("id", id)
-      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue, thread_id, thread_index")
+      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue, thread_id, thread_index, poll_options, poll_duration_minutes")
       .single();
     if (error) throw error;
     return data ? rowToEntry(data) : null;
@@ -163,7 +174,7 @@ export async function updateEntryQueueById(
     if (error) throw error;
     const { data: updated } = await supabase
       .from("entries")
-      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue, thread_id, thread_index")
+      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue, thread_id, thread_index, poll_options, poll_duration_minutes")
       .eq("id", id)
       .single();
     return updated ? rowToEntry(updated) : null;

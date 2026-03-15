@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isInitialized, notesToTweets, stripAttachPlaceholders, trimToTweetLength } from "@/lib/llm";
+import { isInitialized, notesToTweets, notesToPoll, stripAttachPlaceholders, trimToTweetLength } from "@/lib/llm";
 import { requireSupabaseStorage, insertEntry } from "@/lib/entries";
 import {
   getNotesFilePath,
@@ -22,13 +22,13 @@ export async function POST(request: NextRequest) {
       { status: 503 }
     );
   }
-  let body: { file?: string; postsCount?: number; isThread?: boolean; threadLength?: number };
+  let body: { file?: string; postsCount?: number; isThread?: boolean; threadLength?: number; isPoll?: boolean };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-  const { file, postsCount: requestedCount, isThread, threadLength: requestedThreadLength } = body;
+  const { file, postsCount: requestedCount, isThread, threadLength: requestedThreadLength, isPoll } = body;
   if (!file) {
     return NextResponse.json(
       { error: "file is required" },
@@ -50,13 +50,15 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const isThreadMode = isThread === true;
+  const isPollMode = isPoll === true;
+  const isThreadMode = !isPollMode && isThread === true;
   const threadLength = isThreadMode
     ? Math.min(6, Math.max(2, parseInt(String(requestedThreadLength), 10) || 3))
     : 0;
   const postsCount = isThreadMode
     ? threadLength
     : Math.min(50, Math.max(1, parseInt(String(requestedCount), 10) || 10));
+  const DEFAULT_POLL_DURATION_MINUTES = 1440;
   const progress = await readProgress();
   let startIndex =
     progress[file] != null
@@ -90,59 +92,100 @@ export async function POST(request: NextRequest) {
   (async () => {
     try {
       addLog(
-        isThreadMode
-          ? `Starting: ${file}. Generating 1 thread with ${postsCount} post(s). ${chunks.length} segment(s) for context.`
-          : `Starting: ${file}. Generating ${postsCount} post(s), 1 per LLM run. ${chunks.length} segment(s) for context.`
+        isPollMode
+          ? `Starting: ${file}. Generating ${postsCount} poll(s). ${chunks.length} segment(s) for context.`
+          : isThreadMode
+            ? `Starting: ${file}. Generating 1 thread with ${postsCount} post(s). ${chunks.length} segment(s) for context.`
+            : `Starting: ${file}. Generating ${postsCount} post(s), 1 per LLM run. ${chunks.length} segment(s) for context.`
       );
       for (let run = 0; run < postsCount; run++) {
         const chunkIndex = (startIndex + run) % chunks.length;
         const chunk = chunks[chunkIndex];
         addLog(
-          `Run ${run + 1}/${postsCount} (segment ${chunkIndex + 1}/${chunks.length}, ${chunk.length} chars) → LLM (1 post)...`
+          `Run ${run + 1}/${postsCount} (segment ${chunkIndex + 1}/${chunks.length}, ${chunk.length} chars) → LLM (${isPollMode ? "1 poll" : "1 post"})...`
         );
-        const result = await notesToTweets(chunk, {
-          systemPrompt: systemPrompt ?? undefined,
-          onePostOnly: true,
-        });
-        if (result.usage) {
-          job.usage.promptTokens += result.usage.promptTokens || 0;
-          job.usage.completionTokens += result.usage.completionTokens || 0;
-          addLog(
-            `  tokens: prompt=${result.usage.promptTokens} completion=${result.usage.completionTokens}`
-          );
-        }
-        const tweets = result.tweets || [];
-        const tw = tweets[0];
-        if (!tw) {
-          addLog("  no post from this run", "err");
-        } else {
-          let text = typeof tw === "string" ? tw : tw.text;
-          text = stripAttachPlaceholders(text);
-          const safe =
-            text.length <= 280 ? text : trimToTweetLength(text).slice(0, 280);
-          const entryPayload: {
-            text: string;
-            topicRef?: string;
-            part?: number;
-            threadId?: string;
-            threadIndex?: number;
-          } = { text: safe };
-          if (tw.topicRef != null) entryPayload.topicRef = tw.topicRef;
-          if (tw.part != null) entryPayload.part = tw.part;
-          if (threadId) {
-            entryPayload.threadId = threadId;
-            entryPayload.threadIndex = run + 1;
-          }
-          const saved = await insertEntry(entryPayload);
-          job.tweets.push({
-            id: saved.id,
-            text: saved.text,
-            topicRef: saved.topicRef,
-            part: saved.part,
+        if (isPollMode) {
+          const result = await notesToPoll(chunk, {
+            systemPrompt: systemPrompt ?? undefined,
           });
-          job.savedCount = job.tweets.length;
-          const preview = text.length > 60 ? text.slice(0, 57) + "..." : text;
-          addLog(`  saved post ${job.tweets.length}: "${preview}"`, "ok");
+          if (result.usage) {
+            job.usage.promptTokens += result.usage.promptTokens || 0;
+            job.usage.completionTokens += result.usage.completionTokens || 0;
+            addLog(
+              `  tokens: prompt=${result.usage.promptTokens} completion=${result.usage.completionTokens}`
+            );
+          }
+          const poll = result.poll;
+          if (!poll || poll.options.length < 2 || poll.options.length > 4) {
+            addLog("  no valid poll from this run (need 2–4 options)", "err");
+          } else {
+            const options = poll.options.map((o) =>
+              o.length > 25 ? o.slice(0, 25) : o
+            );
+            const saved = await insertEntry({
+              text: poll.text,
+              pollOptions: options,
+              pollDurationMinutes: DEFAULT_POLL_DURATION_MINUTES,
+            });
+            job.tweets.push({
+              id: saved.id,
+              text: saved.text,
+              topicRef: saved.topicRef,
+              part: saved.part,
+            });
+            job.savedCount = job.tweets.length;
+            const preview =
+              poll.text.length > 60 ? poll.text.slice(0, 57) + "..." : poll.text;
+            addLog(
+              `  saved poll ${job.tweets.length}: "${preview}" [${options.length} options]`,
+              "ok"
+            );
+          }
+        } else {
+          const result = await notesToTweets(chunk, {
+            systemPrompt: systemPrompt ?? undefined,
+            onePostOnly: true,
+          });
+          if (result.usage) {
+            job.usage.promptTokens += result.usage.promptTokens || 0;
+            job.usage.completionTokens += result.usage.completionTokens || 0;
+            addLog(
+              `  tokens: prompt=${result.usage.promptTokens} completion=${result.usage.completionTokens}`
+            );
+          }
+          const tweets = result.tweets || [];
+          const tw = tweets[0];
+          if (!tw) {
+            addLog("  no post from this run", "err");
+          } else {
+            let text = typeof tw === "string" ? tw : tw.text;
+            text = stripAttachPlaceholders(text);
+            const safe =
+              text.length <= 280 ? text : trimToTweetLength(text).slice(0, 280);
+            const entryPayload: {
+              text: string;
+              topicRef?: string;
+              part?: number;
+              threadId?: string;
+              threadIndex?: number;
+            } = { text: safe };
+            if (tw.topicRef != null) entryPayload.topicRef = tw.topicRef;
+            if (tw.part != null) entryPayload.part = tw.part;
+            if (threadId) {
+              entryPayload.threadId = threadId;
+              entryPayload.threadIndex = run + 1;
+            }
+            const saved = await insertEntry(entryPayload);
+            job.tweets.push({
+              id: saved.id,
+              text: saved.text,
+              topicRef: saved.topicRef,
+              part: saved.part,
+            });
+            job.savedCount = job.tweets.length;
+            const preview = text.length > 60 ? text.slice(0, 57) + "..." : text;
+            addLog(`  saved post ${job.tweets.length}: "${preview}"`, "ok");
+          }
         }
         job.runsDone = run + 1;
       }

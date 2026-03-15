@@ -112,6 +112,9 @@ const DEFAULT_NOTES_TO_TWEETS_PROMPT =
 const ONE_POST_INSTRUCTION =
   "\n\nOutput exactly ONE post only. No second post, no \"Post 2\", no numbering. Your post MUST be 280 characters or fewer. Complete the full sentence within that limit—never output a cut-off or incomplete sentence. Nothing else.";
 
+const POLL_INSTRUCTION =
+  "\n\nOutput exactly ONE X (Twitter) poll. Use this format only—no other text:\nQuestion: <poll question, max 280 characters>\nOption 1: <max 25 characters>\nOption 2: <max 25 characters>\nOption 3: <max 25 characters, optional>\nOption 4: <max 25 characters, optional>\nYou MUST provide at least 2 options and at most 4. Each option label MUST be 25 characters or fewer. The question must be engaging and drawn from the notes. No explanations, no hashtags in options.";
+
 function stripAttachPlaceholders(s: string): string {
   if (!s || typeof s !== "string") return s;
   return s
@@ -183,6 +186,68 @@ function parseNotesToTweetsOutput(raw: string): ParsedTweet[] {
     }
   }
   return tweets;
+}
+
+export interface ParsedPoll {
+  text: string;
+  options: string[];
+}
+
+const POLL_OPTION_MAX_LEN = 25;
+
+function parseNotesToPollOutput(raw: string): ParsedPoll | null {
+  const lines = raw
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  let question = "";
+  const options: string[] = [];
+  for (const line of lines) {
+    const qMatch = line.match(/^Question\s*:\s*(.*)/i);
+    const optMatch = line.match(/^Option\s*(\d+)\s*:\s*(.*)/i);
+    if (qMatch) {
+      question = trimToLimit(stripAttachPlaceholders(qMatch[1].trim()), 280);
+    } else if (optMatch) {
+      const label = stripAttachPlaceholders(optMatch[2].trim()).slice(0, POLL_OPTION_MAX_LEN);
+      if (label.length > 0) options.push(label);
+    }
+  }
+  if (!question || options.length < 2 || options.length > 4) return null;
+  return { text: question, options };
+}
+
+export async function notesToPoll(
+  chunkText: string,
+  options: { systemPrompt?: string } = {}
+) {
+  if (!client) {
+    throw new Error("Grok client not initialized. Set XAI_API_KEY.");
+  }
+  const systemPrompt =
+    (options.systemPrompt && options.systemPrompt.trim()) ||
+    DEFAULT_NOTES_TO_TWEETS_PROMPT;
+  const completion = await client.chat.completions.create({
+    model: RAG_MODEL,
+    max_tokens: RAG_SINGLE_POST_MAX_TOKENS,
+    temperature: RAG_TEMPERATURE,
+    messages: [
+      { role: "system", content: systemPrompt + POLL_INSTRUCTION },
+      { role: "user", content: chunkText },
+    ],
+  });
+  const raw = completion.choices[0]?.message?.content || "";
+  const poll = parseNotesToPollOutput(raw);
+  return {
+    success: true,
+    poll: poll ?? undefined,
+    usage: completion.usage
+      ? {
+          promptTokens: completion.usage.prompt_tokens,
+          completionTokens: completion.usage.completion_tokens,
+          totalTokens: completion.usage.total_tokens,
+        }
+      : null,
+  };
 }
 
 export async function notesToTweets(
