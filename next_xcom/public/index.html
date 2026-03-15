@@ -239,6 +239,19 @@
             font-size: 0.75rem;
             color: #8899a6;
         }
+        .entry-posted-badge {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: #00ba7c;
+            background: rgba(0, 186, 124, 0.15);
+            padding: 2px 8px;
+            border-radius: 6px;
+            margin-left: 8px;
+        }
+        .entry-card.entry-card--posted {
+            border-left: 3px solid #00ba7c;
+        }
         
         .entry-topic-ref {
             display: block;
@@ -410,8 +423,10 @@
             margin-left: 4px;
         }
 
-        .entries-count .queue-count .q-10am { color: #1d9bf0; }
-        .entries-count .queue-count .q-6pm { color: #8b5cf6; }
+        .entries-count .queue-count .q-8am { color: #1d9bf0; }
+        .entries-count .queue-count .q-12pm { color: #eab308; }
+        .entries-count .queue-count .q-4pm { color: #8b5cf6; }
+        .entries-count .queue-count .q-8pm { color: #ec4899; }
         
         .btn-group {
             display: flex;
@@ -894,7 +909,7 @@
             <h1 class="panel-header">
                 Saved Texts
                 <span class="entries-count" id="entriesCount">(0)</span>
-                <button type="button" class="dequeue-all-btn" id="dequeueAllBtn" title="Remove all posts from 10am and 6pm queues">Dequeue All</button>
+                <button type="button" class="dequeue-all-btn" id="dequeueAllBtn" title="Remove all posts from 8am, 12pm, 4pm and 8pm queues">Dequeue All</button>
             </h1>
             <div class="entries-list" id="entriesList">
                 <div class="empty-state">
@@ -1215,11 +1230,15 @@
             const queueHtml = `
                         <div class="entry-queue">
                             <span class="entry-queue-label">Queue:</span>
-                            <button type="button" class="queue-btn ${q === '10am' ? 'active' : ''}" data-queue="10am">10am</button>
-                            <button type="button" class="queue-btn ${q === '6pm' ? 'active' : ''}" data-queue="6pm">6pm</button>
+                            <button type="button" class="queue-btn ${q === '8am' ? 'active' : ''}" data-queue="8am">8am</button>
+                            <button type="button" class="queue-btn ${q === '12pm' ? 'active' : ''}" data-queue="12pm">12pm</button>
+                            <button type="button" class="queue-btn ${q === '4pm' ? 'active' : ''}" data-queue="4pm">4pm</button>
+                            <button type="button" class="queue-btn ${q === '8pm' ? 'active' : ''}" data-queue="8pm">8pm</button>
                         </div>`;
+            const postedBadge = entry.postedAt ? `<span class="entry-posted-badge" title="Posted ${escapeHtml(formatDate(entry.postedAt))}">Posted</span>` : '';
+            const cardClass = entry.postedAt ? ' entry-card--posted' : '';
             return `
-                <div class="entry-card" data-entry-id="${escapeHtml(String(entry.id))}" title="Drag an image here to attach">
+                <div class="entry-card${cardClass}" data-entry-id="${escapeHtml(String(entry.id))}" title="Drag an image here to attach">
                     <div class="entry-view">
                         ${threadBadge}
                         ${topicLabel}
@@ -1227,7 +1246,7 @@
                         ${imageHtml}
                         ${queueHtml}
                         <div class="entry-footer">
-                            <span class="entry-timestamp">${formatDate(entry.timestamp)}</span>
+                            <span class="entry-timestamp">${formatDate(entry.timestamp)}</span>${postedBadge}
                             <div class="entry-actions">
                                 <button type="button" class="copy-btn">
                                     <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1257,11 +1276,13 @@
 
         function renderEntries(entries) {
             const total = entries.length;
-            const count10am = entries.filter(e => (e.queue || '') === '10am').length;
-            const count6pm = entries.filter(e => (e.queue || '') === '6pm').length;
+            const count8am = entries.filter(e => (e.queue || '') === '8am').length;
+            const count12pm = entries.filter(e => (e.queue || '') === '12pm').length;
+            const count4pm = entries.filter(e => (e.queue || '') === '4pm').length;
+            const count8pm = entries.filter(e => (e.queue || '') === '8pm').length;
             entriesCount.innerHTML = total === 0
                 ? '(0)'
-                : `(${total})<span class="queue-count"> · <span class="q-10am">10am: ${count10am}</span> · <span class="q-6pm">6pm: ${count6pm}</span></span>`;
+                : `(${total})<span class="queue-count"> · <span class="q-8am">8am: ${count8am}</span> · <span class="q-12pm">12pm: ${count12pm}</span> · <span class="q-4pm">4pm: ${count4pm}</span> · <span class="q-8pm">8pm: ${count8pm}</span></span>`;
             
             if (entries.length === 0) {
                 entriesList.innerHTML = `

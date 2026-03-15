@@ -23,8 +23,9 @@ export async function PATCH(
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
+  const q = body?.queue;
   const queue =
-    body?.queue === "10am" || body?.queue === "6pm" ? body.queue : null;
+    typeof q === "string" && ["8am", "12pm", "4pm", "8pm"].includes(q) ? q : null;
   try {
     const entry = await updateEntryQueueById(id, queue ?? "");
     if (!entry) {

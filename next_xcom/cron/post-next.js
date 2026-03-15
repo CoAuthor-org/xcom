@@ -1,6 +1,6 @@
 /**
- * Cron job: post the next queued entry or thread for the current slot (10am or 6pm queue) to X.
- * Run at 10am IST → picks from queue '10am'; at 6pm IST → picks from queue '6pm'.
+ * Cron job: post the next queued entry or thread for the current slot (8am, 12pm, 4pm, or 8pm queue) to X.
+ * Run at 02:30, 06:30, 10:30, 14:30 UTC (= 8am, 12pm, 4pm, 8pm IST).
  * Threads are posted as a single X thread (tweetThread). Standalone posts as single tweets.
  * Requires: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, X API OAuth 1.0a credentials.
  */
@@ -17,18 +17,26 @@ function env(name) {
   return v.trim().replace(/^["']|["']$/g, '');
 }
 
-/** Determine which queue to run: 10am or 6pm (IST). Uses SCHEDULE_QUEUE if set, else UTC hour. */
+const SLOTS = ['8am', '12pm', '4pm', '8pm'];
+
+/** Determine which queue to run: 8am, 12pm, 4pm, or 8pm (IST). Uses SCHEDULE_QUEUE if set, else infers from UTC (02:30, 06:30, 10:30, 14:30 UTC). */
 function getScheduleSlot() {
   const forced = env('SCHEDULE_QUEUE').toLowerCase();
-  if (forced === '10am' || forced === '6pm') return forced;
+  if (SLOTS.includes(forced)) return forced;
   const now = new Date();
   const utcHour = now.getUTCHours();
   const utcMin = now.getUTCMinutes();
-  if (utcHour === 4 && utcMin >= 25) return '10am';
-  if (utcHour === 5 && utcMin < 35) return '10am';
-  if (utcHour === 12 && utcMin >= 25) return '6pm';
-  if (utcHour === 13 && utcMin < 35) return '6pm';
-  return utcHour < 12 ? '10am' : '6pm';
+  // Allow a small window around :30 so a minute or two drift still picks the right slot
+  if (utcHour === 2 && utcMin >= 25 && utcMin <= 40) return '8am';
+  if (utcHour === 6 && utcMin >= 25 && utcMin <= 40) return '12pm';
+  if (utcHour === 10 && utcMin >= 25 && utcMin <= 40) return '4pm';
+  if (utcHour === 14 && utcMin >= 25 && utcMin <= 40) return '8pm';
+  // Default for manual runs or drift: infer from nearest run
+  if (utcHour < 4) return '8am';
+  if (utcHour < 8) return '12pm';
+  if (utcHour < 12) return '4pm';
+  if (utcHour < 16) return '8pm';
+  return '8am';
 }
 
 const supabaseUrl = env('SUPABASE_URL');

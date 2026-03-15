@@ -148,7 +148,7 @@ export async function updateEntryQueueById(
   queue: string
 ): Promise<Entry | null> {
   if (supabase) {
-    const value = queue === "10am" || queue === "6pm" ? queue : null;
+    const value = ["8am", "12pm", "4pm", "8pm"].includes(queue) ? queue : null;
     const { data: entry } = await supabase
       .from("entries")
       .select("id, thread_id")
@@ -201,7 +201,7 @@ export async function deleteAllEntries(): Promise<boolean> {
   return true;
 }
 
-/** Clear queue (10am/6pm) for all entries. Returns number of entries that had a queue set. */
+/** Clear queue (8am/12pm/4pm/8pm) for all entries. Returns number of entries that had a queue set. */
 export async function clearAllQueues(): Promise<{ cleared: number }> {
   if (supabase) {
     const { data: rows, error: fetchErr } = await supabase

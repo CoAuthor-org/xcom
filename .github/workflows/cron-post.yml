@@ -1,14 +1,16 @@
-# Post next tweet from the appropriate queue: 10am IST → 10am queue, 6pm IST → 6pm queue.
+# Post next tweet from the appropriate queue. Runs at 8am, 12pm, 4pm, 8pm IST.
 name: Cron post next tweet
 
 on:
   schedule:
-    - cron: '45 3 * * *'   # 03:45 UTC = 09:15 IST — 45 min early for 10am queue (compensates for GitHub Actions delay)
-    - cron: '45 11 * * *'  # 11:45 UTC = 17:15 IST — 45 min early for 6pm queue (compensates for GitHub Actions delay)
+    - cron: '30 2 * * *'   # 02:30 UTC = 8am IST
+    - cron: '30 6 * * *'   # 06:30 UTC = 12pm IST
+    - cron: '30 10 * * *'  # 10:30 UTC = 4pm IST
+    - cron: '30 14 * * *'  # 14:30 UTC = 8pm IST
   workflow_dispatch:
     inputs:
       queue:
-        description: 'Queue to run (10am or 6pm); leave empty to auto-detect from current UTC time'
+        description: 'Queue to run (8am, 12pm, 4pm, 8pm); leave empty to auto-detect from current UTC time'
         required: false
         default: ''
 

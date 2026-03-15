@@ -24,7 +24,7 @@ Then open **http://localhost:3000** — you'll be redirected to `/index.html` (t
 |------|--------|---------|
 | `/entries` | GET | List saved entries |
 | `/entries/:id` | PUT, DELETE | Update or delete entry |
-| `/entries/:id/queue` | PATCH | Set queue (10am/6pm) |
+| `/entries/:id/queue` | PATCH | Set queue (8am/12pm/4pm/8pm) |
 | `/entries/:id/image` | POST, DELETE | Attach/remove image |
 | `/entries/all` | DELETE | Delete all entries |
 | `/save` | POST | Save new entry |

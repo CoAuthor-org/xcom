@@ -1,17 +1,16 @@
 # Cron: scheduled posting to X
 
-This folder and the GitHub Action run the **scheduler** for your content pipeline. There are **two queues**: **10am** and **6pm** (IST). Each run posts the next entry from the matching queue and marks it as posted.
+This folder and the GitHub Action run the **scheduler** for your content pipeline. There are **four queues**: **8am**, **12pm**, **4pm**, and **8pm** (IST). Each run posts the next entry from the matching queue and marks it as posted.
 
 ## How it works
 
-- **Two queues**: Each entry has a `queue` column: `'10am'` or `'6pm'` (or null = not scheduled). In the app you assign a queue per entry (10am or 6pm).
-- **10am run**: At **10:00 IST** the job picks the oldest entry with `queue = '10am'` and `posted_at IS NULL`, posts it to X, and sets `posted_at`.
-- **6pm run**: At **18:00 IST** it picks the oldest entry with `queue = '6pm'` and `posted_at IS NULL`, posts it, and sets `posted_at`.
-- **Schedule**: GitHub Actions runs at **10:00 IST** and **18:00 IST** (04:30 UTC and 12:30 UTC; see `.github/workflows/cron-post.yml`). You can also trigger manually and optionally choose which queue to run (Actions → Cron post next tweet → Run workflow).
+- **Four queues**: Each entry has a `queue` column: `'8am'`, `'12pm'`, `'4pm'`, or `'8pm'` (or null = not scheduled). In the app you assign a queue per entry.
+- **Runs**: At **8:00**, **12:00**, **4:00**, and **8:00 PM IST** the job picks the oldest entry/thread with the matching queue and `posted_at IS NULL`, posts it to X, and sets `posted_at`.
+- **Schedule**: GitHub Actions runs at **02:30**, **06:30**, **10:30**, **14:30 UTC** (= 8am, 12pm, 4pm, 8pm IST; see `.github/workflows/cron-post.yml`). You can also trigger manually and optionally choose which queue to run (Actions → Cron post next tweet → Run workflow).
 
 ## Prerequisites
 
-1. **Supabase**: Migration `003_entries_posted_at.sql` must be applied so the `entries` table has a `posted_at` column.
+1. **Supabase**: Migrations `003_entries_posted_at.sql` and `006_entries_queue_four_times.sql` (for 8am/12pm/4pm/8pm queues) must be applied.
 2. **X (Twitter) Developer account**: Create an app in the [X Developer Portal](https://developer.x.com/) and obtain OAuth 1.0a credentials for **user context** (posting on behalf of your account).
 
 ## Environment variables
@@ -49,7 +48,7 @@ node cron/post-next.js
 
 ## Design (best-practice scheduling)
 
-- **Two queues (10am and 6pm IST)**: Lets you separate content (e.g. OS at 10am, JS at 6pm); each run only reads from the matching queue.
+- **Four queues (8am, 12pm, 4pm, 8pm IST)**: Lets you spread content across the day; each run only reads from the matching queue.
 - **Queue = stack by `created_at`**: Within each queue, order is oldest first so the same entry is not skipped or duplicated.
 - **Mark as posted, don’t delete**: Keeps history in Supabase and lets you show “posted at” in the UI or re-use content later.
 
