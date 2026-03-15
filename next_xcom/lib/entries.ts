@@ -16,6 +16,8 @@ export interface Entry {
   imageUrl?: string;
   postedAt?: string;
   queue?: string;
+  threadId?: string;
+  threadIndex?: number;
 }
 
 function rowToEntry(row: Record<string, unknown>): Entry {
@@ -28,6 +30,8 @@ function rowToEntry(row: Record<string, unknown>): Entry {
     imageUrl: (row.image_url as string) ?? undefined,
     postedAt: (row.posted_at as string) ?? undefined,
     queue: (row.queue as string) ?? undefined,
+    threadId: row.thread_id != null ? String(row.thread_id) : undefined,
+    threadIndex: row.thread_index != null ? Number(row.thread_index) : undefined,
   };
 }
 
@@ -45,7 +49,7 @@ export async function getEntries(): Promise<Entry[]> {
   if (supabase) {
     const { data, error } = await supabase
       .from("entries")
-      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue")
+      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue, thread_id, thread_index")
       .order("created_at", { ascending: false });
     if (error) throw error;
     return (data || []).map(rowToEntry);
@@ -74,6 +78,8 @@ export async function insertEntry(entry: {
   part?: number | null;
   imageUrl?: string | null;
   queue?: string | null;
+  threadId?: string | null;
+  threadIndex?: number | null;
 }): Promise<Entry> {
   if (supabase) {
     const { data, error } = await supabase
@@ -84,8 +90,10 @@ export async function insertEntry(entry: {
         part: entry.part ?? null,
         image_url: entry.imageUrl ?? null,
         queue: entry.queue ?? null,
+        thread_id: entry.threadId ?? null,
+        thread_index: entry.threadIndex ?? null,
       })
-      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue")
+      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue, thread_id, thread_index")
       .single();
     if (error) throw error;
     return rowToEntry(data);
@@ -99,6 +107,8 @@ export async function insertEntry(entry: {
   };
   if (entry.topicRef != null) newEntry.topicRef = entry.topicRef;
   if (entry.part != null) newEntry.part = entry.part;
+  if (entry.threadId != null) newEntry.threadId = entry.threadId;
+  if (entry.threadIndex != null) newEntry.threadIndex = entry.threadIndex;
   data.entries.push(newEntry);
   fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
   return {
@@ -116,7 +126,7 @@ export async function updateEntryById(
       .from("entries")
       .update({ text })
       .eq("id", id)
-      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue")
+      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue, thread_id, thread_index")
       .single();
     if (error) throw error;
     return data ? rowToEntry(data) : null;
@@ -139,14 +149,24 @@ export async function updateEntryQueueById(
 ): Promise<Entry | null> {
   if (supabase) {
     const value = queue === "10am" || queue === "6pm" ? queue : null;
-    const { data, error } = await supabase
+    const { data: entry } = await supabase
+      .from("entries")
+      .select("id, thread_id")
+      .eq("id", id)
+      .single();
+    if (!entry) return null;
+    const threadId = entry.thread_id as string | null;
+    const { error } = await supabase
       .from("entries")
       .update({ queue: value })
-      .eq("id", id)
-      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue")
-      .single();
+      .eq(threadId ? "thread_id" : "id", threadId ?? id);
     if (error) throw error;
-    return data ? rowToEntry(data) : null;
+    const { data: updated } = await supabase
+      .from("entries")
+      .select("id, text, created_at, topic_ref, part, image_url, posted_at, queue, thread_id, thread_index")
+      .eq("id", id)
+      .single();
+    return updated ? rowToEntry(updated) : null;
   }
   return null;
 }
@@ -179,6 +199,38 @@ export async function deleteAllEntries(): Promise<boolean> {
   }
   fs.writeFileSync(dataPath, JSON.stringify({ entries: [] }, null, 2));
   return true;
+}
+
+/** Clear queue (10am/6pm) for all entries. Returns number of entries that had a queue set. */
+export async function clearAllQueues(): Promise<{ cleared: number }> {
+  if (supabase) {
+    const { data: rows, error: fetchErr } = await supabase
+      .from("entries")
+      .select("id")
+      .not("queue", "is", null);
+    if (fetchErr) throw fetchErr;
+    const count = rows?.length ?? 0;
+    if (count === 0) return { cleared: 0 };
+    const { error: updateErr } = await supabase
+      .from("entries")
+      .update({ queue: null })
+      .not("queue", "is", null);
+    if (updateErr) throw updateErr;
+    return { cleared: count };
+  }
+  const data = JSON.parse(
+    fs.existsSync(dataPath) ? fs.readFileSync(dataPath, "utf8") : "{}"
+  ) as { entries?: Array<Record<string, unknown>> };
+  const entries = data.entries ?? [];
+  let cleared = 0;
+  for (const e of entries) {
+    if (e.queue != null) {
+      delete e.queue;
+      cleared++;
+    }
+  }
+  if (cleared > 0) fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
+  return { cleared };
 }
 
 export function formatSupabaseError(e: { message?: string; details?: string; hint?: string; code?: string }): string {

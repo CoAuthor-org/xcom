@@ -1,6 +1,7 @@
 /**
- * Cron job: post the next queued entry for the current slot (10am or 6pm queue) to X.
+ * Cron job: post the next queued entry or thread for the current slot (10am or 6pm queue) to X.
  * Run at 10am IST → picks from queue '10am'; at 6pm IST → picks from queue '6pm'.
+ * Threads are posted as a single X thread (tweetThread). Standalone posts as single tweets.
  * Requires: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, X API OAuth 1.0a credentials.
  */
 
@@ -23,13 +24,10 @@ function getScheduleSlot() {
   const now = new Date();
   const utcHour = now.getUTCHours();
   const utcMin = now.getUTCMinutes();
-  // 10am IST = 04:30 UTC → treat hour 4 as 10am
   if (utcHour === 4 && utcMin >= 25) return '10am';
   if (utcHour === 5 && utcMin < 35) return '10am';
-  // 6pm IST = 12:30 UTC
   if (utcHour === 12 && utcMin >= 25) return '6pm';
   if (utcHour === 13 && utcMin < 35) return '6pm';
-  // Default by hour: morning slot 0–8 UTC → 10am, else 6pm (for manual runs)
   return utcHour < 12 ? '10am' : '6pm';
 }
 
@@ -55,40 +53,69 @@ async function main() {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-  const { data: entries, error: fetchError } = await supabase
+  // 1. Try to find next thread (thread_id not null)
+  const { data: threadEntries, error: threadError } = await supabase
     .from('entries')
-    .select('id, text, image_url')
+    .select('id, text, image_url, thread_id, thread_index, created_at')
     .eq('queue', slot)
     .is('posted_at', null)
-    .order('created_at', { ascending: true })
-    .limit(1);
+    .not('thread_id', 'is', null)
+    .order('created_at', { ascending: true });
 
-  if (fetchError) {
-    console.error('Supabase fetch error:', fetchError.message);
+  if (threadError) {
+    console.error('Supabase fetch error:', threadError.message);
     process.exit(1);
   }
-  if (!entries || entries.length === 0) {
-    console.log(`No queued entries for ${slot}.`);
-    process.exit(0);
+
+  let isThread = false;
+  let entriesToPost = [];
+
+  if (threadEntries && threadEntries.length > 0) {
+    // Group by thread_id, pick earliest thread
+    const byThread = {};
+    for (const e of threadEntries) {
+      const tid = e.thread_id;
+      if (!byThread[tid]) byThread[tid] = [];
+      byThread[tid].push(e);
+    }
+    const threadIds = Object.keys(byThread);
+    let earliestThreadId = threadIds[0];
+    let earliestCreated = byThread[earliestThreadId][0]?.created_at;
+    for (const tid of threadIds) {
+      const first = byThread[tid][0];
+      if (first && first.created_at < earliestCreated) {
+        earliestCreated = first.created_at;
+        earliestThreadId = tid;
+      }
+    }
+    const threadPosts = byThread[earliestThreadId]
+      .sort((a, b) => (a.thread_index ?? 0) - (b.thread_index ?? 0));
+    if (threadPosts.length >= 1) {
+      isThread = threadPosts.length > 1;
+      entriesToPost = threadPosts;
+    }
   }
 
-  const entry = entries[0];
-  const text = (entry.text || '').trim();
-  const textPreview = text.length > 60 ? text.slice(0, 60) + '…' : text;
-  console.log('Entry to post:', { id: entry.id, textLength: text.length, preview: textPreview, hasImage: !!entry.image_url });
-
-  if (!text) {
-    const { error: updateErr } = await supabase
+  // 2. If no thread, get single standalone post
+  if (entriesToPost.length === 0) {
+    const { data: singleEntries, error: singleError } = await supabase
       .from('entries')
-      .update({ posted_at: new Date().toISOString() })
-      .eq('id', entry.id);
-    if (updateErr) console.error('Update error:', updateErr.message);
-    process.exit(0);
-  }
+      .select('id, text, image_url')
+      .eq('queue', slot)
+      .is('posted_at', null)
+      .is('thread_id', null)
+      .order('created_at', { ascending: true })
+      .limit(1);
 
-  if (text.length > 280) {
-    console.error('Entry exceeds 280 characters. Id:', entry.id);
-    process.exit(1);
+    if (singleError) {
+      console.error('Supabase fetch error:', singleError.message);
+      process.exit(1);
+    }
+    if (!singleEntries || singleEntries.length === 0) {
+      console.log(`No queued entries for ${slot}.`);
+      process.exit(0);
+    }
+    entriesToPost = singleEntries;
   }
 
   const client = new TwitterApi({
@@ -99,47 +126,122 @@ async function main() {
   });
   const rw = client.readWrite;
 
-  let mediaId = null;
-  if (entry.image_url) {
-    try {
-      const response = await fetch(entry.image_url);
-      if (!response.ok) throw new Error(`Image fetch ${response.status}`);
-      const buffer = Buffer.from(await response.arrayBuffer());
-      mediaId = await rw.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' });
-    } catch (e) {
-      console.warn('Media upload failed, posting text only:', e.message);
+  if (isThread && entriesToPost.length > 1) {
+    // Post as thread using tweetThread
+    const threadItems = [];
+    for (const entry of entriesToPost) {
+      const text = (entry.text || '').trim();
+      if (text.length > 280) {
+        console.error('Entry exceeds 280 characters. Id:', entry.id);
+        process.exit(1);
+      }
+      let mediaIds = [];
+      if (entry.image_url) {
+        try {
+          const response = await fetch(entry.image_url);
+          if (!response.ok) throw new Error(`Image fetch ${response.status}`);
+          const buffer = Buffer.from(await response.arrayBuffer());
+          const mediaId = await rw.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' });
+          mediaIds = [mediaId];
+        } catch (e) {
+          console.warn('Media upload failed for entry', entry.id, ':', e.message);
+        }
+      }
+      threadItems.push(
+        mediaIds.length > 0
+          ? { text, media: { media_ids: mediaIds } }
+          : text
+      );
     }
-  }
+    try {
+      console.log('Calling X API v2 tweetThread...', entriesToPost.length, 'posts');
+      await rw.v2.tweetThread(threadItems);
+      const threadId = entriesToPost[0].thread_id;
+      const { error: updateError } = await supabase
+        .from('entries')
+        .update({ posted_at: new Date().toISOString() })
+        .eq('thread_id', threadId);
+      if (updateError) {
+        console.error('Failed to set posted_at:', updateError.message);
+        process.exit(1);
+      }
+      console.log('Posted thread:', threadId, entriesToPost.length, 'posts');
+    } catch (e) {
+      const errDetail = {
+        message: e.message,
+        name: e.name,
+        code: e.code,
+        rateLimit: e.rateLimit,
+        ...(e.data != null && { data: e.data }),
+        ...(e.response != null && { responseStatus: e.response?.status, responseData: e.response?.data }),
+      };
+      console.error('X API post error:', e.message || e);
+      console.error('X API error detail:', JSON.stringify(errDetail, null, 2));
+      process.exit(1);
+    }
+  } else {
+    // Single post
+    const entry = entriesToPost[0];
+    const text = (entry.text || '').trim();
+    const textPreview = text.length > 60 ? text.slice(0, 60) + '…' : text;
+    console.log('Entry to post:', { id: entry.id, textLength: text.length, preview: textPreview, hasImage: !!entry.image_url });
 
-  try {
-    const opts = mediaId ? { media: { media_ids: [mediaId] } } : undefined;
-    console.log('Calling X API v2 tweet...', mediaId ? '(with media)' : '(text only)');
-    const { data: tweet } = await rw.v2.tweet(text, opts);
-    console.log('Posted tweet id:', tweet?.id, 'entry:', entry.id);
-  } catch (e) {
-    const errDetail = {
-      message: e.message,
-      name: e.name,
-      code: e.code,
-      rateLimit: e.rateLimit,
-      ...(e.data != null && { data: e.data }),
-      ...(e.response != null && { responseStatus: e.response?.status, responseData: e.response?.data })
-    };
-    console.error('X API post error:', e.message || e);
-    console.error('X API error detail:', JSON.stringify(errDetail, null, 2));
-    process.exit(1);
-  }
+    if (!text) {
+      const { error: updateErr } = await supabase
+        .from('entries')
+        .update({ posted_at: new Date().toISOString() })
+        .eq('id', entry.id);
+      if (updateErr) console.error('Update error:', updateErr.message);
+      process.exit(0);
+    }
 
-  const { error: updateError } = await supabase
-    .from('entries')
-    .update({ posted_at: new Date().toISOString() })
-    .eq('id', entry.id);
+    if (text.length > 280) {
+      console.error('Entry exceeds 280 characters. Id:', entry.id);
+      process.exit(1);
+    }
 
-  if (updateError) {
-    console.error('Failed to set posted_at:', updateError.message);
-    process.exit(1);
+    let mediaId = null;
+    if (entry.image_url) {
+      try {
+        const response = await fetch(entry.image_url);
+        if (!response.ok) throw new Error(`Image fetch ${response.status}`);
+        const buffer = Buffer.from(await response.arrayBuffer());
+        mediaId = await rw.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' });
+      } catch (e) {
+        console.warn('Media upload failed, posting text only:', e.message);
+      }
+    }
+
+    try {
+      const opts = mediaId ? { media: { media_ids: [mediaId] } } : undefined;
+      console.log('Calling X API v2 tweet...', mediaId ? '(with media)' : '(text only)');
+      const { data: tweet } = await rw.v2.tweet(text, opts);
+      console.log('Posted tweet id:', tweet?.id, 'entry:', entry.id);
+    } catch (e) {
+      const errDetail = {
+        message: e.message,
+        name: e.name,
+        code: e.code,
+        rateLimit: e.rateLimit,
+        ...(e.data != null && { data: e.data }),
+        ...(e.response != null && { responseStatus: e.response?.status, responseData: e.response?.data }),
+      };
+      console.error('X API post error:', e.message || e);
+      console.error('X API error detail:', JSON.stringify(errDetail, null, 2));
+      process.exit(1);
+    }
+
+    const { error: updateError } = await supabase
+      .from('entries')
+      .update({ posted_at: new Date().toISOString() })
+      .eq('id', entry.id);
+
+    if (updateError) {
+      console.error('Failed to set posted_at:', updateError.message);
+      process.exit(1);
+    }
+    console.log('Marked entry as posted:', entry.id);
   }
-  console.log('Marked entry as posted:', entry.id);
 }
 
 main();

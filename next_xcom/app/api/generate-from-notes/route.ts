@@ -22,13 +22,13 @@ export async function POST(request: NextRequest) {
       { status: 503 }
     );
   }
-  let body: { file?: string; postsCount?: number };
+  let body: { file?: string; postsCount?: number; isThread?: boolean; threadLength?: number };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-  const { file, postsCount: requestedCount } = body;
+  const { file, postsCount: requestedCount, isThread, threadLength: requestedThreadLength } = body;
   if (!file) {
     return NextResponse.json(
       { error: "file is required" },
@@ -50,10 +50,13 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  const postsCount = Math.min(
-    50,
-    Math.max(1, parseInt(String(requestedCount), 10) || 10)
-  );
+  const isThreadMode = isThread === true;
+  const threadLength = isThreadMode
+    ? Math.min(6, Math.max(2, parseInt(String(requestedThreadLength), 10) || 3))
+    : 0;
+  const postsCount = isThreadMode
+    ? threadLength
+    : Math.min(50, Math.max(1, parseInt(String(requestedCount), 10) || 10));
   const progress = await readProgress();
   let startIndex =
     progress[file] != null
@@ -82,10 +85,14 @@ export async function POST(request: NextRequest) {
     job.logs.push({ msg, kind });
   };
 
+  const threadId = isThreadMode ? crypto.randomUUID() : null;
+
   (async () => {
     try {
       addLog(
-        `Starting: ${file}. Generating ${postsCount} post(s), 1 per LLM run. ${chunks.length} segment(s) for context.`
+        isThreadMode
+          ? `Starting: ${file}. Generating 1 thread with ${postsCount} post(s). ${chunks.length} segment(s) for context.`
+          : `Starting: ${file}. Generating ${postsCount} post(s), 1 per LLM run. ${chunks.length} segment(s) for context.`
       );
       for (let run = 0; run < postsCount; run++) {
         const chunkIndex = (startIndex + run) % chunks.length;
@@ -113,11 +120,19 @@ export async function POST(request: NextRequest) {
           text = stripAttachPlaceholders(text);
           const safe =
             text.length <= 280 ? text : trimToTweetLength(text).slice(0, 280);
-          const entryPayload: { text: string; topicRef?: string; part?: number } = {
-            text: safe,
-          };
+          const entryPayload: {
+            text: string;
+            topicRef?: string;
+            part?: number;
+            threadId?: string;
+            threadIndex?: number;
+          } = { text: safe };
           if (tw.topicRef != null) entryPayload.topicRef = tw.topicRef;
           if (tw.part != null) entryPayload.part = tw.part;
+          if (threadId) {
+            entryPayload.threadId = threadId;
+            entryPayload.threadIndex = run + 1;
+          }
           const saved = await insertEntry(entryPayload);
           job.tweets.push({
             id: saved.id,
