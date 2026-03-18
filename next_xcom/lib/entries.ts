@@ -212,6 +212,34 @@ export async function deleteAllEntries(): Promise<boolean> {
   return true;
 }
 
+/** Delete only entries that have been posted (posted_at set). Unposted entries are unchanged. */
+export async function deletePostedEntries(): Promise<{ deleted: number }> {
+  if (supabase) {
+    const { data: rows, error: fetchErr } = await supabase
+      .from("entries")
+      .select("id")
+      .not("posted_at", "is", null);
+    if (fetchErr) throw fetchErr;
+    const count = rows?.length ?? 0;
+    if (count === 0) return { deleted: 0 };
+    const { error: delErr } = await supabase
+      .from("entries")
+      .delete()
+      .not("posted_at", "is", null);
+    if (delErr) throw delErr;
+    return { deleted: count };
+  }
+  const data = JSON.parse(
+    fs.existsSync(dataPath) ? fs.readFileSync(dataPath, "utf8") : "{}"
+  ) as { entries?: Array<Record<string, unknown>> };
+  const entries = data.entries ?? [];
+  const kept = entries.filter((e) => !e.postedAt);
+  const deleted = entries.length - kept.length;
+  data.entries = kept;
+  if (deleted > 0) fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
+  return { deleted };
+}
+
 /** Clear queue (8am/12pm/4pm/8pm) for all entries. Returns number of entries that had a queue set. */
 export async function clearAllQueues(): Promise<{ cleared: number }> {
   if (supabase) {

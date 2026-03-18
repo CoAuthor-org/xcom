@@ -69,6 +69,14 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
+        .delete-posted-btn {
+            color: #f0883e;
+            border-color: #6e3d1e;
+        }
+        .delete-posted-btn:hover {
+            color: #ffa657;
+            border-color: #f0883e;
+        }
         
         .input-section {
             background: #192734;
@@ -956,6 +964,7 @@
                 Saved Texts
                 <span class="entries-count" id="entriesCount">(0)</span>
                 <button type="button" class="dequeue-all-btn" id="dequeueAllBtn" title="Remove all posts from 8am, 12pm, 4pm and 8pm queues">Dequeue All</button>
+                <button type="button" class="dequeue-all-btn delete-posted-btn" id="deletePostedBtn" title="Remove only entries already posted to X (unposted stay)">Delete posted</button>
             </h1>
             <div class="entries-list" id="entriesList">
                 <div class="empty-state">
@@ -975,6 +984,7 @@
         const entriesList = document.getElementById('entriesList');
         const entriesCount = document.getElementById('entriesCount');
         const dequeueAllBtn = document.getElementById('dequeueAllBtn');
+        const deletePostedBtn = document.getElementById('deletePostedBtn');
         const notesSelect = document.getElementById('notesSelect');
         const generateFromNotesBtn = document.getElementById('generateFromNotesBtn');
         const ragResults = document.getElementById('ragResults');
@@ -1276,6 +1286,26 @@
             }
             dequeueAllBtn.disabled = false;
         });
+
+        if (deletePostedBtn) {
+            deletePostedBtn.addEventListener('click', async () => {
+                if (!confirm('Delete all entries that are already posted to X? Drafts and queued (unposted) entries stay.')) return;
+                deletePostedBtn.disabled = true;
+                try {
+                    const res = await fetch('/entries/bulk/posted', { method: 'DELETE' });
+                    const data = await res.json().catch(() => ({}));
+                    if (res.ok) {
+                        showMessage(data.message || 'Done', 'success');
+                        loadEntries();
+                    } else {
+                        showMessage(data.error || 'Delete posted failed', 'error');
+                    }
+                } catch (e) {
+                    showMessage(SERVER_UNREACHABLE_MSG, 'error');
+                }
+                deletePostedBtn.disabled = false;
+            });
+        }
 
         function renderEntryCard(entry, threadPos) {
             const topicLabel = (entry.topicRef && entry.part) ? `<span class="entry-topic-ref">${escapeHtml(entry.topicRef)} (${entry.part}/2)</span>` : '';
