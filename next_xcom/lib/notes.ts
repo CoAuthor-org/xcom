@@ -11,6 +11,16 @@ const notesToTweetsPromptPath = path.join(
   "prompts",
   "notes-to-tweets.prompt.txt"
 );
+const notesToThreadsPromptPath = path.join(
+  projectRoot,
+  "prompts",
+  "notes-to-threads.prompt.txt"
+);
+const notesToPollsPromptPath = path.join(
+  projectRoot,
+  "prompts",
+  "notes-to-polls.prompt.txt"
+);
 
 const CHUNK_CHAR_LIMIT = 8000;
 const MAX_CHUNKS_PER_REQUEST = 20;
@@ -52,6 +62,28 @@ export function loadNotesToTweetsPrompt(): string | null {
     console.warn("Could not load notes-to-tweets prompt file:", (e as Error).message);
   }
   return null;
+}
+
+export function loadNotesToThreadsPrompt(): string | null {
+  try {
+    if (fs.existsSync(notesToThreadsPromptPath)) {
+      return fs.readFileSync(notesToThreadsPromptPath, "utf8").trim();
+    }
+  } catch (e) {
+    console.warn("Could not load notes-to-threads prompt file:", (e as Error).message);
+  }
+  return loadNotesToTweetsPrompt();
+}
+
+export function loadNotesToPollsPrompt(): string | null {
+  try {
+    if (fs.existsSync(notesToPollsPromptPath)) {
+      return fs.readFileSync(notesToPollsPromptPath, "utf8").trim();
+    }
+  } catch (e) {
+    console.warn("Could not load notes-to-polls prompt file:", (e as Error).message);
+  }
+  return loadNotesToTweetsPrompt();
 }
 
 export function chunkMarkdown(content: string): string[] {

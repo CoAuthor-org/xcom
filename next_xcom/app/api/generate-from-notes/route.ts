@@ -5,6 +5,8 @@ import {
   getNotesFilePath,
   chunkMarkdown,
   loadNotesToTweetsPrompt,
+  loadNotesToThreadsPrompt,
+  loadNotesToPollsPrompt,
   readProgress,
   writeProgress,
 } from "@/lib/notes";
@@ -82,7 +84,10 @@ export async function POST(request: NextRequest) {
   };
   setJob(jobId, job);
 
-  const systemPrompt = loadNotesToTweetsPrompt();
+  const systemPrompt =
+    isPollMode ? loadNotesToPollsPrompt()
+    : isThreadMode ? loadNotesToThreadsPrompt()
+    : loadNotesToTweetsPrompt();
   const addLog = (msg: string, kind = "msg") => {
     job.logs.push({ msg, kind });
   };
