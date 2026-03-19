@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isInitialized, notesToTweets, notesToPoll, stripAttachPlaceholders, trimToTweetLength } from "@/lib/llm";
+import { isInitialized, notesToTweets, notesToThreads, notesToPoll, stripAttachPlaceholders, trimToTweetLength } from "@/lib/llm";
 import { requireSupabaseStorage, insertEntry } from "@/lib/entries";
 import {
   getNotesFilePath,
@@ -100,9 +100,62 @@ export async function POST(request: NextRequest) {
         isPollMode
           ? `Starting: ${file}. Generating ${postsCount} poll(s). ${chunks.length} segment(s) for context.`
           : isThreadMode
-            ? `Starting: ${file}. Generating 1 thread with ${postsCount} post(s). ${chunks.length} segment(s) for context.`
+            ? `Starting: ${file}. Generating 1 thread (5–7 posts from 1 section). ${chunks.length} segment(s) for context.`
             : `Starting: ${file}. Generating ${postsCount} post(s), 1 per LLM run. ${chunks.length} segment(s) for context.`
       );
+      if (isThreadMode) {
+        const threadChunkIndex =
+          chunks.length > 2
+            ? 2 + (startIndex % (chunks.length - 2))
+            : startIndex % chunks.length;
+        const chunk = chunks[threadChunkIndex];
+        addLog(
+          `Run 1/1 (segment ${threadChunkIndex + 1}/${chunks.length}, ${chunk.length} chars) → LLM (1 full thread)...`
+        );
+        const result = await notesToThreads(chunk, {
+          systemPrompt: systemPrompt ?? undefined,
+        });
+        if (result.usage) {
+          job.usage.promptTokens += result.usage.promptTokens || 0;
+          job.usage.completionTokens += result.usage.completionTokens || 0;
+          addLog(
+            `  tokens: prompt=${result.usage.promptTokens} completion=${result.usage.completionTokens}`
+          );
+        }
+        const posts = result.posts || [];
+        if (posts.length === 0) {
+          addLog("  no valid thread from LLM (expected 1/ 2/ 3/ format)", "err");
+        } else {
+          for (let i = 0; i < posts.length; i++) {
+            const text = stripAttachPlaceholders(posts[i]);
+            const safe =
+              text.length <= 280 ? text : trimToTweetLength(text).slice(0, 280);
+            const saved = await insertEntry({
+              text: safe,
+              threadId: threadId!,
+              threadIndex: i + 1,
+            });
+            job.tweets.push({
+              id: saved.id,
+              text: saved.text,
+              topicRef: saved.topicRef,
+              part: saved.part,
+            });
+            const preview =
+              safe.length > 60 ? safe.slice(0, 57) + "..." : safe;
+            addLog(`  saved post ${i + 1}/${posts.length}: "${preview}"`, "ok");
+          }
+          job.savedCount = job.tweets.length;
+        }
+        job.runsDone = 1;
+        const prog = await readProgress();
+        prog[file] = (startIndex + 1) % chunks.length;
+        await writeProgress(prog);
+        addLog(
+          `Done. Generated 1 thread with ${job.savedCount} post(s).`
+        );
+        job.status = "done";
+      } else {
       for (let run = 0; run < postsCount; run++) {
         const chunkIndex = (startIndex + run) % chunks.length;
         const chunk = chunks[chunkIndex];
@@ -194,11 +247,12 @@ export async function POST(request: NextRequest) {
         }
         job.runsDone = run + 1;
       }
-      const prog = await readProgress();
-      prog[file] = (startIndex + postsCount) % chunks.length;
-      await writeProgress(prog);
-      addLog(`Done. Generated ${job.savedCount} post(s) in ${postsCount} run(s).`);
-      job.status = "done";
+        const prog = await readProgress();
+        prog[file] = (startIndex + postsCount) % chunks.length;
+        await writeProgress(prog);
+        addLog(`Done. Generated ${job.savedCount} post(s) in ${postsCount} run(s).`);
+        job.status = "done";
+      }
     } catch (error) {
       console.error("generate-from-notes:", (error as Error).message);
       job.status = "error";

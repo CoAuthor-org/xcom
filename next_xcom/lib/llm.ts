@@ -113,7 +113,7 @@ const ONE_POST_INSTRUCTION =
   "\n\nOutput exactly ONE post only. No second post, no \"Post 2\", no numbering. Your post MUST be 280 characters or fewer. Complete the full sentence within that limit—never output a cut-off or incomplete sentence. Nothing else.";
 
 const POLL_INSTRUCTION =
-  "\n\nOutput exactly ONE X (Twitter) poll. Use this format only—no other text:\nQuestion: <poll question, max 280 characters>\nOption 1: <max 25 characters>\nOption 2: <max 25 characters>\nOption 3: <max 25 characters, optional>\nOption 4: <max 25 characters, optional>\nYou MUST provide at least 2 options and at most 4. Each option label MUST be 25 characters or fewer. The question must be engaging and drawn from the notes. No explanations, no hashtags in options.";
+  "\n\nOutput exactly ONE X (Twitter) poll. Use this format only—no other text:\nQuestion: <poll question, max 280 characters>\nOptions:\n- <Option 1, max 25 characters>\n- <Option 2, max 25 characters>\n- <Option 3, max 25 characters, optional>\n- <Option 4, max 25 characters, optional>\nYou MUST provide at least 2 options and at most 4. Each option label MUST be 25 characters or fewer. The question must be engaging and drawn from the notes. No explanations, no hashtags in options.";
 
 function stripAttachPlaceholders(s: string): string {
   if (!s || typeof s !== "string") return s;
@@ -202,13 +202,28 @@ function parseNotesToPollOutput(raw: string): ParsedPoll | null {
     .filter(Boolean);
   let question = "";
   const options: string[] = [];
+  let inDashOptions = false;
   for (const line of lines) {
     const qMatch = line.match(/^Question\s*:\s*(.*)/i);
-    const optMatch = line.match(/^Option\s*(\d+)\s*:\s*(.*)/i);
+    const optLineMatch = line.match(/^Option\s*(\d+)\s*:\s*(.*)/i);
+    const optionsHeaderMatch = line.match(/^Options\s*:?\s*$/i);
+    const dashOptMatch = line.match(/^-\s*(.*)/);
     if (qMatch) {
       question = trimToLimit(stripAttachPlaceholders(qMatch[1].trim()), 280);
-    } else if (optMatch) {
-      const label = stripAttachPlaceholders(optMatch[2].trim()).slice(0, POLL_OPTION_MAX_LEN);
+      inDashOptions = false;
+    } else if (optionsHeaderMatch) {
+      inDashOptions = true;
+    } else if (dashOptMatch && inDashOptions) {
+      const label = stripAttachPlaceholders(dashOptMatch[1].trim()).slice(
+        0,
+        POLL_OPTION_MAX_LEN
+      );
+      if (label.length > 0) options.push(label);
+    } else if (optLineMatch) {
+      const label = stripAttachPlaceholders(optLineMatch[2].trim()).slice(
+        0,
+        POLL_OPTION_MAX_LEN
+      );
       if (label.length > 0) options.push(label);
     }
   }
@@ -223,9 +238,14 @@ export async function notesToPoll(
   if (!client) {
     throw new Error("Grok client not initialized. Set XAI_API_KEY.");
   }
-  const systemPrompt =
+  let systemPrompt =
     (options.systemPrompt && options.systemPrompt.trim()) ||
-    DEFAULT_NOTES_TO_TWEETS_PROMPT;
+    DEFAULT_NOTES_TO_TWEETS_PROMPT + POLL_INSTRUCTION;
+  // If a dedicated polls prompt file is provided (already contains format rules),
+  // don't append POLL_INSTRUCTION again.
+  if (options.systemPrompt && options.systemPrompt.includes("Guardrails (system instructions) — POLLS")) {
+    systemPrompt = options.systemPrompt.trim();
+  }
   const completion = await client.chat.completions.create({
     model: RAG_MODEL,
     max_tokens: RAG_SINGLE_POST_MAX_TOKENS,
@@ -245,6 +265,60 @@ export async function notesToPoll(
           promptTokens: completion.usage.prompt_tokens,
           completionTokens: completion.usage.completion_tokens,
           totalTokens: completion.usage.total_tokens,
+        }
+      : null,
+  };
+}
+
+/** Parse thread output in "1/ ... 2/ ... 3/ ..." format. Strips numbering and returns posts in order. */
+function parseNotesToThreadsOutput(raw: string): string[] {
+  const posts: string[] = [];
+  const lines = raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+  for (const line of lines) {
+    const match = line.match(/^\d+\/\s*(.+)$/);
+    if (match) {
+      let text = stripAttachPlaceholders(match[1].trim());
+      text = trimToLimit(text, 280);
+      if (text.length > 0) posts.push(text);
+    }
+  }
+  return posts;
+}
+
+export interface NotesToThreadsResult {
+  success: boolean;
+  posts: string[];
+  usage: { promptTokens: number; completionTokens: number } | null;
+}
+
+export async function notesToThreads(
+  chunkText: string,
+  options: { systemPrompt?: string } = {}
+) {
+  if (!client) {
+    throw new Error("Grok client not initialized. Set XAI_API_KEY.");
+  }
+  const systemPrompt =
+    (options.systemPrompt && options.systemPrompt.trim()) ||
+    DEFAULT_NOTES_TO_TWEETS_PROMPT;
+  const completion = await client.chat.completions.create({
+    model: RAG_MODEL,
+    max_tokens: RAG_MAX_OUTPUT_TOKENS,
+    temperature: RAG_TEMPERATURE,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: chunkText },
+    ],
+  });
+  const raw = completion.choices[0]?.message?.content || "";
+  const posts = parseNotesToThreadsOutput(raw);
+  return {
+    success: true,
+    posts,
+    usage: completion.usage
+      ? {
+          promptTokens: completion.usage.prompt_tokens || 0,
+          completionTokens: completion.usage.completion_tokens || 0,
         }
       : null,
   };
