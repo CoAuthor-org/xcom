@@ -6,6 +6,8 @@ import { Github, LogOut } from "lucide-react";
 const selectClass =
   "w-full rounded-lg border-2 border-[#38444d] bg-[#15202b] px-4 py-3 text-[#e7e9ea] outline-none transition-colors focus:border-[#1d9bf0]";
 
+const ADDITIONAL_TWEAKS_KEY = "blog-poster-additional-tweaks";
+
 interface GitHubOrg {
   login: string;
   id: number;
@@ -33,6 +35,7 @@ export function BlogPoster() {
   const [selectedPr, setSelectedPr] = React.useState("");
   const [orgsLoading, setOrgsLoading] = React.useState(false);
   const [prsLoading, setPrsLoading] = React.useState(false);
+  const [additionalTweaks, setAdditionalTweaks] = React.useState("");
 
   const loadNotesFiles = React.useCallback(async () => {
     try {
@@ -101,6 +104,18 @@ export function BlogPoster() {
     loadNotesFiles();
     loadGithubStatus();
   }, [loadNotesFiles, loadGithubStatus]);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setAdditionalTweaks(localStorage.getItem(ADDITIONAL_TWEAKS_KEY) ?? "");
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(ADDITIONAL_TWEAKS_KEY, additionalTweaks);
+    }
+  }, [additionalTweaks]);
 
   React.useEffect(() => {
     if (githubStatus?.connected) {
@@ -236,6 +251,20 @@ export function BlogPoster() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Additional tweaks */}
+        <div className="rounded-2xl border border-[#38444d] bg-[#192734] p-6">
+          <label className="mb-2 block text-sm font-medium text-[#8899a6]">
+            Additional tweaks
+          </label>
+          <textarea
+            value={additionalTweaks}
+            onChange={(e) => setAdditionalTweaks(e.target.value)}
+            placeholder="Paste any additional context or tweaks here..."
+            rows={8}
+            className="w-full resize-y rounded-lg border-2 border-[#38444d] bg-[#15202b] px-4 py-3 text-[#e7e9ea] placeholder-[#8899a6] outline-none transition-colors focus:border-[#1d9bf0]"
+          />
         </div>
       </div>
     </div>
