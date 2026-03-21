@@ -140,8 +140,7 @@ async function main() {
     for (const entry of entriesToPost) {
       const text = (entry.text || '').trim();
       if (text.length > 280) {
-        console.error('Entry exceeds 280 characters. Id:', entry.id);
-        process.exit(1);
+        console.warn('Entry over 280 chars (loose check, will attempt post). Id:', entry.id, 'length:', text.length);
       }
       let mediaIds = [];
       if (entry.image_url) {
@@ -205,8 +204,7 @@ async function main() {
     }
 
     if (text.length > 280) {
-      console.error('Entry exceeds 280 characters. Id:', entry.id);
-      process.exit(1);
+      console.warn('Entry over 280 chars (loose check, will attempt post). Id:', entry.id, 'length:', text.length);
     }
 
     try {

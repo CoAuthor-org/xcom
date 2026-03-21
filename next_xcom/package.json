@@ -10,12 +10,19 @@
     "cron:post": "node cron/post-next.js"
   },
   "dependencies": {
+    "@radix-ui/react-collapsible": "^1.1.12",
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-slot": "^1.2.4",
     "@supabase/supabase-js": "^2.99.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "dotenv": "^17.3.1",
+    "lucide-react": "^0.577.0",
     "next": "16.1.6",
     "openai": "^6.29.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
+    "tailwind-merge": "^3.5.0",
     "twitter-api-v2": "^1.29.0"
   },
   "devDependencies": {
