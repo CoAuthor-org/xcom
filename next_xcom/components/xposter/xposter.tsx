@@ -60,8 +60,10 @@ export function XPoster() {
   const [editText, setEditText] = React.useState("");
   const [dequeueLoading, setDequeueLoading] = React.useState(false);
   const [deletePostedLoading, setDeletePostedLoading] = React.useState(false);
+  const [selectedActionLoading, setSelectedActionLoading] = React.useState(false);
   const [queueFilter, setQueueFilter] = React.useState<Set<string>>(new Set());
   const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
+  const [postedFilter, setPostedFilter] = React.useState(false);
   const [selectedUnits, setSelectedUnits] = React.useState<Set<string>>(new Set());
 
   const showMessage = React.useCallback((text: string, type: string) => {
@@ -126,6 +128,122 @@ export function XPoster() {
       showMessage(SERVER_UNREACHABLE_MSG, "error");
     } finally {
       setDequeueLoading(false);
+    }
+  };
+
+  const getSelectedEntryIds = React.useCallback((): string[] => {
+    const byT: Record<string, Entry[]> = {};
+    for (const e of entries) {
+      if (e.threadId) {
+        if (!byT[e.threadId]) byT[e.threadId] = [];
+        byT[e.threadId].push(e);
+      }
+    }
+    const ids: string[] = [];
+    for (const unitId of selectedUnits) {
+      if (byT[unitId]?.length > 1) {
+        byT[unitId].forEach((x) => ids.push(x.id));
+      } else {
+        ids.push(unitId);
+      }
+    }
+    return ids;
+  }, [entries, selectedUnits]);
+
+  const handleDequeueSelected = async () => {
+    const entryIds = getSelectedEntryIds();
+    if (entryIds.length === 0) return;
+    setSelectedActionLoading(true);
+    try {
+      let ok = 0;
+      let err = 0;
+      for (const id of entryIds) {
+        const res = await fetch(`/entries/${id}/queue`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ queue: null }),
+        });
+        if (res.ok) ok++;
+        else err++;
+      }
+      if (err === 0) {
+        showMessage(`Dequeued ${ok} post${ok !== 1 ? "s" : ""}`, "success");
+        setSelectedUnits(new Set());
+        loadEntries();
+      } else {
+        showMessage(`Failed to dequeue some posts (${err} failed)`, "error");
+        loadEntries();
+      }
+    } catch {
+      showMessage(SERVER_UNREACHABLE_MSG, "error");
+    } finally {
+      setSelectedActionLoading(false);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    const entryIds = getSelectedEntryIds();
+    if (entryIds.length === 0) return;
+    if (
+      !confirm(
+        `Delete ${entryIds.length} selected post${entryIds.length !== 1 ? "s" : ""}? This cannot be undone.`
+      )
+    )
+      return;
+    setSelectedActionLoading(true);
+    try {
+      let ok = 0;
+      let err = 0;
+      for (const id of entryIds) {
+        const res = await fetch(`/entries/${id}`, { method: "DELETE" });
+        if (res.ok) ok++;
+        else err++;
+      }
+      if (err === 0) {
+        showMessage(`Deleted ${ok} post${ok !== 1 ? "s" : ""}`, "success");
+        setSelectedUnits(new Set());
+        loadEntries();
+      } else {
+        showMessage(`Failed to delete some posts (${err} failed)`, "error");
+        loadEntries();
+      }
+    } catch {
+      showMessage(SERVER_UNREACHABLE_MSG, "error");
+    } finally {
+      setSelectedActionLoading(false);
+    }
+  };
+
+  const handleClearSelections = () => setSelectedUnits(new Set());
+
+  const handleBulkSchedule = async (queue: "8am" | "12pm" | "4pm" | "8pm") => {
+    const entryIds = getSelectedEntryIds();
+    if (entryIds.length === 0) return;
+    setSelectedActionLoading(true);
+    try {
+      let ok = 0;
+      let err = 0;
+      for (const id of entryIds) {
+        const res = await fetch(`/entries/${id}/queue`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ queue }),
+        });
+        if (res.ok) ok++;
+        else err++;
+      }
+      if (err === 0) {
+        showMessage(`Scheduled ${ok} post${ok !== 1 ? "s" : ""} for ${queue}`, "success");
+        setSelectedUnits(new Set());
+        loadEntries();
+      } else {
+        showMessage(`Failed to schedule some posts (${err} failed)`, "error");
+        loadEntries();
+      }
+    } catch {
+      showMessage(SERVER_UNREACHABLE_MSG, "error");
+    } finally {
+      setSelectedActionLoading(false);
     }
   };
 
@@ -356,6 +474,7 @@ export function XPoster() {
   const count4pm = countingUnits.filter((u) => u.queue === "4pm").length;
   const count8pm = countingUnits.filter((u) => u.queue === "8pm").length;
   const countUnscheduled = countingUnits.filter((u) => !u.queue.trim()).length;
+  const countPosted = entries.filter((e) => e.postedAt).length;
   const countThreads = Object.keys(byThreadFull).filter(
     (tid) => byThreadFull[tid].length > 1
   ).length;
@@ -368,8 +487,12 @@ export function XPoster() {
     (!!(e.queue || "").trim() && queueFilter.has(e.queue || ""));
   const typeMatches = (e: Entry) =>
     typeFilter.size === 0 || typeFilter.has(getEntryType(e));
+  const postedMatches = (e: Entry) =>
+    !postedFilter || !!e.postedAt;
 
-  const filteredEntries = entries.filter((e) => queueMatches(e) && typeMatches(e));
+  const filteredEntries = entries.filter(
+    (e) => queueMatches(e) && typeMatches(e) && postedMatches(e)
+  );
 
   const toggleQueueFilter = (queue: string) => {
     setQueueFilter((prev) => {
@@ -387,6 +510,7 @@ export function XPoster() {
       return next;
     });
   };
+  const togglePostedFilter = () => setPostedFilter((p) => !p);
 
   const getSelectUnitId = (entry: Entry, threadPos?: { index: number; total: number }) =>
     threadPos && threadPos.index === 1 && entry.threadId ? entry.threadId : entry.id;
@@ -834,8 +958,8 @@ export function XPoster() {
             <div className="xp-panel-title-row">
               <h1 className="xp-panel-title">Saved Texts</h1>
               <span className="entries-count">
-                ({filteredEntries.length}
-                {(queueFilter.size > 0 || typeFilter.size > 0) && ` of ${entries.length}`})
+              ({filteredEntries.length}
+              {(queueFilter.size > 0 || typeFilter.size > 0 || postedFilter) && ` of ${entries.length}`})
               </span>
             </div>
             <div className="xp-panel-filters">
@@ -881,6 +1005,14 @@ export function XPoster() {
               </button>
               <button
                 type="button"
+                className={`queue-filter-btn q-posted ${postedFilter ? "active" : ""}`}
+                onClick={togglePostedFilter}
+                title="Filter: posts already posted to X"
+              >
+                Posted: {countPosted}
+              </button>
+              <button
+                type="button"
                 className={`type-filter-btn ${typeFilter.has("thread") ? "active" : ""}`}
                 onClick={() => toggleTypeFilter("thread")}
                 title="Filter: threads only"
@@ -905,27 +1037,95 @@ export function XPoster() {
               </button>
             </div>
             <div className="xp-panel-actions">
-              {selectedUnits.size > 0 && (
-                <span className="selected-count-badge">{selectedUnits.size} selected</span>
+              {selectedUnits.size > 0 ? (
+                <>
+                  <span className="selected-count-badge">{selectedUnits.size} selected</span>
+                  <button
+                    type="button"
+                    className="bulk-queue-btn q-8am"
+                    onClick={() => handleBulkSchedule("8am")}
+                    disabled={selectedActionLoading}
+                    title="Schedule selected for 8am"
+                  >
+                    8am
+                  </button>
+                  <button
+                    type="button"
+                    className="bulk-queue-btn q-12pm"
+                    onClick={() => handleBulkSchedule("12pm")}
+                    disabled={selectedActionLoading}
+                    title="Schedule selected for 12pm"
+                  >
+                    12pm
+                  </button>
+                  <button
+                    type="button"
+                    className="bulk-queue-btn q-4pm"
+                    onClick={() => handleBulkSchedule("4pm")}
+                    disabled={selectedActionLoading}
+                    title="Schedule selected for 4pm"
+                  >
+                    4pm
+                  </button>
+                  <button
+                    type="button"
+                    className="bulk-queue-btn q-8pm"
+                    onClick={() => handleBulkSchedule("8pm")}
+                    disabled={selectedActionLoading}
+                    title="Schedule selected for 8pm"
+                  >
+                    8pm
+                  </button>
+                  <button
+                    type="button"
+                    className="dequeue-all-btn"
+                    onClick={handleDequeueSelected}
+                    disabled={selectedActionLoading}
+                    title="Remove selected from their queues"
+                  >
+                    Dequeue Selected
+                  </button>
+                  <button
+                    type="button"
+                    className="dequeue-all-btn delete-posted-btn"
+                    onClick={handleDeleteSelected}
+                    disabled={selectedActionLoading}
+                    title="Delete selected posts"
+                  >
+                    Delete Selected
+                  </button>
+                  <button
+                    type="button"
+                    className="clear-selections-btn"
+                    onClick={handleClearSelections}
+                    disabled={selectedActionLoading}
+                    title="Deselect all"
+                  >
+                    Clear Selections
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="dequeue-all-btn"
+                    onClick={handleDequeueAll}
+                    disabled={dequeueLoading}
+                    title="Remove all posts from 8am, 12pm, 4pm and 8pm queues"
+                  >
+                    Dequeue All
+                  </button>
+                  <button
+                    type="button"
+                    className="dequeue-all-btn delete-posted-btn"
+                    onClick={handleDeletePosted}
+                    disabled={deletePostedLoading}
+                    title="Remove only entries already posted to X (unposted stay)"
+                  >
+                    Delete posted
+                  </button>
+                </>
               )}
-              <button
-                type="button"
-                className="dequeue-all-btn"
-                onClick={handleDequeueAll}
-                disabled={dequeueLoading}
-                title="Remove all posts from 8am, 12pm, 4pm and 8pm queues"
-              >
-                Dequeue All
-              </button>
-              <button
-                type="button"
-                className="dequeue-all-btn delete-posted-btn"
-                onClick={handleDeletePosted}
-                disabled={deletePostedLoading}
-                title="Remove only entries already posted to X (unposted stay)"
-              >
-                Delete posted
-              </button>
             </div>
           </div>
           <div className="entries-list">
@@ -935,7 +1135,7 @@ export function XPoster() {
                 <p>
                   {entries.length === 0
                     ? "No saved texts yet. Start by composing one!"
-                    : "No posts match the selected filters. Click queue or type buttons above to change filters."}
+                    : "No posts match the selected filters. Click queue, type or Posted buttons above to change filters."}
                 </p>
               </div>
             ) : (
