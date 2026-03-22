@@ -64,6 +64,28 @@
   .xposter .notes-select {
     min-width: 100%;
   }
+
+  .xposter .entry-card {
+    padding: 16px;
+  }
+
+  .xposter .thread-posts .entry-card {
+    padding: 12px 14px;
+  }
+
+  .xposter .thread-posts .entry-card:not(:first-child) {
+    margin-left: 12px;
+    padding-left: 14px;
+  }
+
+  .xposter .entry-view-body {
+    gap: 10px;
+  }
+
+  .xposter .entry-footer {
+    padding-top: 10px;
+    gap: 10px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -90,10 +112,44 @@
 
   .xposter .entry-queue {
     flex-wrap: wrap;
+    gap: 6px 8px;
   }
 
   .xposter .entries-list {
     max-height: calc(100vh - 200px);
+    gap: 12px;
+  }
+
+  .xposter .entry-card {
+    padding: 14px;
+  }
+
+  .xposter .thread-posts .entry-card {
+    padding: 10px 12px;
+  }
+
+  .xposter .thread-posts .entry-card:not(:first-child) {
+    margin-left: 10px;
+    padding-left: 12px;
+  }
+
+  .xposter .entry-view-body {
+    gap: 8px;
+  }
+
+  .xposter .entry-footer {
+    padding-top: 8px;
+    margin-top: 2px;
+    gap: 8px;
+  }
+
+  .xposter .entry-actions .copy-btn,
+  .xposter .entry-actions .edit-btn,
+  .xposter .entry-actions .attach-image-btn,
+  .xposter .entry-actions .remove-image-btn,
+  .xposter .entry-actions .delete-btn {
+    padding: 6px 8px;
+    min-width: 32px;
   }
 }
 
@@ -131,7 +187,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 4px;
+  gap: 8px 10px;
 }
 
 .xposter .xp-panel-filters .queue-filter-btn,
@@ -145,44 +201,94 @@
   gap: 8px;
 }
 
-/* Neumorphic buttons - main action style */
+/* Unified neumorphic button - base for ALL action buttons (excludes checkbox) */
 .xposter .dequeue-all-btn,
 .xposter .delete-posted-btn,
-.xposter .clear-selections-btn {
+.xposter .clear-selections-btn,
+.xposter .xp-btn,
+.xposter .bulk-queue-btn,
+.xposter .queue-filter-btn,
+.xposter .type-filter-btn,
+.xposter .queue-btn,
+.xposter .copy-btn,
+.xposter .edit-btn,
+.xposter .attach-image-btn,
+.xposter .remove-image-btn,
+.xposter .delete-btn,
+.xposter .reset-pointer-btn,
+.xposter .rag-action-btn,
+.xposter .mini-copy-btn,
+.xposter .mini-save-btn,
+.xposter .notes-log-clear,
+.xposter .generate-from-notes-btn {
   all: unset;
+  box-sizing: border-box;
   cursor: pointer;
-  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border-radius: 100em;
   background: var(--neo-bg);
   box-shadow: var(--neo-raised);
   padding: 8px 16px;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: var(--neo-text-muted);
+  font-family: inherit;
+  color: var(--neo-text);
   transition: box-shadow 0.2s, transform 0.2s;
 }
 
 .xposter .dequeue-all-btn:hover:not(:disabled),
-.xposter .clear-selections-btn:hover:not(:disabled) {
+.xposter .delete-posted-btn:hover:not(:disabled),
+.xposter .clear-selections-btn:hover:not(:disabled),
+.xposter .xp-btn:hover:not(:disabled),
+.xposter .bulk-queue-btn:hover:not(:disabled),
+.xposter .queue-filter-btn:hover:not(:disabled),
+.xposter .type-filter-btn:hover:not(:disabled),
+.xposter .queue-btn:hover:not(:disabled),
+.xposter .copy-btn:hover:not(:disabled),
+.xposter .edit-btn:hover:not(:disabled),
+.xposter .attach-image-btn:hover:not(:disabled),
+.xposter .remove-image-btn:hover:not(:disabled),
+.xposter .delete-btn:hover:not(:disabled),
+.xposter .reset-pointer-btn:hover:not(:disabled),
+.xposter .rag-action-btn:hover:not(:disabled),
+.xposter .mini-copy-btn:hover:not(:disabled),
+.xposter .mini-save-btn:hover:not(:disabled),
+.xposter .notes-log-clear:hover:not(:disabled),
+.xposter .generate-from-notes-btn:hover:not(:disabled) {
   box-shadow: var(--neo-inset-sm);
   transform: scale(0.98);
 }
 
 .xposter .dequeue-all-btn:disabled,
-.xposter .clear-selections-btn:disabled {
+.xposter .clear-selections-btn:disabled,
+.xposter .xp-btn:disabled,
+.xposter .bulk-queue-btn:disabled,
+.xposter .reset-pointer-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
 }
 
-.xposter .delete-posted-btn {
-  color: #c46a2a;
+/* Color variants - same shape, different tint */
+.xposter .dequeue-all-btn,
+.xposter .clear-selections-btn { color: var(--neo-text-muted); }
+
+.xposter .delete-posted-btn,
+.xposter .delete-all-btn,
+.xposter .delete-btn { color: var(--neo-error); }
+
+.xposter .generate-from-notes-btn,
+.xposter .copy-all-btn,
+.xposter .mini-save-btn,
+.xposter .save-edit-btn {
+  background: var(--neo-accent);
+  color: white;
 }
 
-.xposter .delete-posted-btn:hover:not(:disabled) {
-  box-shadow: var(--neo-inset-sm);
-  transform: scale(0.98);
-}
+.xposter .delete-all-btn { background: var(--neo-error); }
 
 .xposter .input-section {
   background: var(--neo-bg);
@@ -235,30 +341,7 @@
   color: var(--neo-error);
 }
 
-/* Neumorphic primary button */
-.xposter .xp-btn {
-  all: unset;
-  cursor: pointer;
-  position: relative;
-  border-radius: 100em;
-  background: var(--neo-bg);
-  box-shadow: var(--neo-raised);
-  padding: 10px 24px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--neo-accent);
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-
-.xposter .xp-btn:hover:not(:disabled) {
-  box-shadow: var(--neo-inset-sm);
-  transform: scale(0.98);
-}
-
-.xposter .xp-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.xposter .xp-btn:not(.generate-from-notes-btn):not(.save-edit-btn) { color: var(--neo-accent); }
 
 .xposter .message {
   margin-top: 12px;
@@ -284,11 +367,12 @@
 .xposter .entries-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   max-height: calc(100vh - 180px);
   overflow: auto;
   background: var(--neo-bg);
   -webkit-overflow-scrolling: touch;
+  padding: 4px 2px;
 }
 
 .xposter .entries-list > .thread-container,
@@ -304,6 +388,7 @@
   position: relative;
   box-shadow: var(--neo-raised);
   transition: box-shadow 0.2s, transform 0.2s;
+  min-width: 0;
 }
 
 .xposter .entry-view.has-checkbox {
@@ -315,6 +400,9 @@
 .xposter .entry-view-body {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 /* Neumorphic checkbox */
@@ -386,27 +474,7 @@
 }
 
 /* Neumorphic bulk queue buttons */
-.xposter .bulk-queue-btn {
-  padding: 6px 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border: none;
-  border-radius: 100em;
-  background: var(--neo-bg);
-  box-shadow: var(--neo-raised);
-  cursor: pointer;
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-
-.xposter .bulk-queue-btn:hover:not(:disabled) {
-  box-shadow: var(--neo-inset-sm);
-  transform: scale(0.98);
-}
-
-.xposter .bulk-queue-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.xposter .bulk-queue-btn { padding: 6px 12px; font-size: 0.8rem; }
 
 .xposter .bulk-queue-btn.q-8am { color: #1d9bf0; }
 .xposter .bulk-queue-btn.q-12pm { color: #c9970a; }
@@ -440,7 +508,7 @@
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
-  margin-bottom: 12px;
+  margin: 0;
   color: var(--neo-text);
 }
 
@@ -455,22 +523,57 @@
   box-shadow: var(--neo-inset-sm);
 }
 
+.xposter .entry-queue {
+  display: flex;
+  align-items: center;
+  gap: 6px 10px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.xposter .entry-queue-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--neo-text-muted);
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
 .xposter .entry-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 12px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(190, 190, 190, 0.4);
 }
 
 .xposter .entry-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex-wrap: wrap;
+}
+
+.xposter .entry-actions .copy-btn,
+.xposter .entry-actions .edit-btn,
+.xposter .entry-actions .attach-image-btn,
+.xposter .entry-actions .remove-image-btn,
+.xposter .entry-actions .delete-btn {
+  padding: 6px 10px;
+  min-width: 36px;
+}
+
+.xposter .entry-action-icon {
+  flex-shrink: 0;
 }
 
 .xposter .entry-timestamp {
   font-size: 0.75rem;
   color: var(--neo-text-muted);
+  flex-shrink: 0;
 }
 
 .xposter .entry-posted-badge {
@@ -497,36 +600,11 @@
   margin-bottom: 4px;
 }
 
-.xposter .entry-queue {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  flex-wrap: wrap;
-}
 
-.xposter .entry-queue-label {
-  font-size: 0.7rem;
-  color: var(--neo-text-muted);
-  margin-right: 2px;
-}
-
-/* Neumorphic queue buttons on cards */
 .xposter .queue-btn {
   padding: 6px 12px;
-  font-size: 0.72rem;
-  border: none;
-  background: var(--neo-bg);
+  font-size: 0.8rem;
   color: var(--neo-text-muted);
-  border-radius: 10px;
-  cursor: pointer;
-  box-shadow: var(--neo-raised);
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-
-.xposter .queue-btn:hover {
-  box-shadow: var(--neo-inset-sm);
-  transform: scale(0.98);
 }
 
 .xposter .queue-btn.active {
@@ -535,47 +613,9 @@
   box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.2);
 }
 
-/* Neumorphic action buttons on cards */
-.xposter .copy-btn,
-.xposter .edit-btn,
-.xposter .attach-image-btn,
-.xposter .remove-image-btn,
-.xposter .delete-btn {
-  padding: 6px 14px;
-  font-size: 0.8rem;
-  border: none;
-  border-radius: 10px;
-  background: var(--neo-bg);
-  color: var(--neo-text);
-  cursor: pointer;
-  box-shadow: var(--neo-raised);
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-
-.xposter .copy-btn:hover,
-.xposter .edit-btn:hover {
-  box-shadow: var(--neo-inset-sm);
-  transform: scale(0.98);
-}
-
 .xposter .copy-btn.copied {
-  background: rgba(0, 186, 124, 0.2);
+  background: rgba(0, 186, 124, 0.25);
   color: var(--neo-success);
-}
-
-.xposter .attach-image-btn:hover {
-  box-shadow: var(--neo-inset-sm);
-  color: var(--neo-accent);
-}
-
-.xposter .remove-image-btn:hover {
-  box-shadow: var(--neo-inset-sm);
-  color: var(--neo-error);
-}
-
-.xposter .delete-btn:hover {
-  box-shadow: var(--neo-inset-sm);
-  color: var(--neo-error);
 }
 
 .xposter .copy-icon {
@@ -610,19 +650,8 @@
 }
 
 .xposter .edit-actions button {
-  padding: 6px 14px;
+  padding: 8px 16px;
   font-size: 0.85rem;
-}
-
-.xposter .cancel-edit-btn {
-  border: none;
-  background: var(--neo-bg);
-  box-shadow: var(--neo-raised);
-}
-
-.xposter .save-edit-btn {
-  background: var(--neo-accent);
-  color: white;
 }
 
 .xposter .empty-state {
@@ -643,26 +672,11 @@
   font-weight: 400;
 }
 
-/* Neumorphic filter buttons */
 .xposter .queue-filter-btn,
 .xposter .type-filter-btn {
   padding: 6px 12px;
   margin: 0 2px;
   font-size: 0.8rem;
-  font-family: inherit;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  border-radius: 10px;
-  background: var(--neo-bg);
-  box-shadow: var(--neo-raised);
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-
-.xposter .queue-filter-btn:hover,
-.xposter .type-filter-btn:hover {
-  box-shadow: var(--neo-inset-sm);
-  transform: scale(0.98);
 }
 
 .xposter .queue-filter-btn.active,
@@ -792,21 +806,8 @@
 }
 
 .xposter .generate-from-notes-btn {
-  background: #0d9488;
-  color: white;
   flex-shrink: 0;
   padding: 10px 20px;
-  border: none;
-  border-radius: 100em;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: var(--neo-raised);
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-
-.xposter .generate-from-notes-btn:hover:not(:disabled) {
-  box-shadow: var(--neo-inset-sm);
-  transform: scale(0.98);
 }
 
 .xposter .generate-from-notes-btn .spinner {
@@ -830,24 +831,8 @@
 
 .xposter .reset-pointer-btn {
   flex-shrink: 0;
-  padding: 8px 14px;
-  font-size: 0.85rem;
-  border: none;
-  border-radius: 10px;
-  background: var(--neo-bg);
+  padding: 8px 16px;
   color: var(--neo-text-muted);
-  cursor: pointer;
-  box-shadow: var(--neo-raised);
-  transition: box-shadow 0.2s;
-}
-
-.xposter .reset-pointer-btn:hover:not(:disabled) {
-  box-shadow: var(--neo-inset-sm);
-}
-
-.xposter .reset-pointer-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .xposter .rag-actions-row {
@@ -859,28 +844,7 @@
 
 .xposter .rag-action-btn {
   padding: 8px 16px;
-  border-radius: 10px;
   font-size: 0.85rem;
-  border: none;
-  cursor: pointer;
-  font-weight: 500;
-  box-shadow: var(--neo-raised);
-  transition: box-shadow 0.2s, transform 0.2s;
-}
-
-.xposter .rag-action-btn:hover:not(:disabled) {
-  box-shadow: var(--neo-inset-sm);
-  transform: scale(0.98);
-}
-
-.xposter .copy-all-btn {
-  background: var(--neo-accent);
-  color: white;
-}
-
-.xposter .delete-all-btn {
-  background: var(--neo-error);
-  color: white;
 }
 
 .xposter .rag-results {
@@ -920,24 +884,8 @@
 
 .xposter .mini-copy-btn,
 .xposter .mini-save-btn {
-  padding: 6px 10px;
-  font-size: 0.75rem;
-  border-radius: 8px;
-  border: none;
-  background: var(--neo-bg);
-  color: var(--neo-text);
-  cursor: pointer;
-  box-shadow: var(--neo-raised);
-  transition: box-shadow 0.2s;
-}
-
-.xposter .mini-copy-btn:hover {
-  box-shadow: var(--neo-inset-sm);
-}
-
-.xposter .mini-save-btn {
-  background: var(--neo-accent);
-  color: white;
+  padding: 6px 12px;
+  font-size: 0.8rem;
 }
 
 .xposter .rag-empty {
@@ -978,14 +926,9 @@
 }
 
 .xposter .notes-log-clear {
-  background: var(--neo-bg);
-  border: none;
-  color: var(--neo-text-muted);
   padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.7rem;
-  cursor: pointer;
-  box-shadow: var(--neo-raised);
+  font-size: 0.8rem;
+  color: var(--neo-text-muted);
 }
 
 .xposter .notes-log-clear:hover {
@@ -1092,7 +1035,7 @@
   background: var(--neo-bg);
   border: none;
   border-radius: 20px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
   overflow: hidden;
   box-shadow: var(--neo-raised);
 }
@@ -1107,15 +1050,15 @@
 }
 
 .xposter .thread-posts .entry-card {
-  padding: 12px 16px;
+  padding: 14px 18px;
   box-shadow: none;
   border-radius: 0;
 }
 
 .xposter .thread-posts .entry-card:not(:first-child) {
-  margin-left: 16px;
+  margin-left: 20px;
   border-left: 3px solid rgba(190, 190, 190, 0.5);
-  padding-left: 13px;
+  padding-left: 17px;
 }
 
 .xposter .thread-container .entry-card {

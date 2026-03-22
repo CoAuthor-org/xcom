@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Copy, Check, Pencil, ImagePlus, ImageOff, Trash2 } from "lucide-react";
 import "./xposter.css";
 
 const SERVER_UNREACHABLE_MSG =
@@ -1316,46 +1317,24 @@ function EntryCard({
               type="button"
               className={`copy-btn ${copied ? "copied" : ""}`}
               onClick={handleCopy}
+              title={copied ? "Copied!" : "Copy"}
             >
               {copied ? (
-                <>
-                  <svg
-                    className="copy-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  Copied!
-                </>
+                <Check className="entry-action-icon" size={16} strokeWidth={2.5} />
               ) : (
-                <>
-                  <svg
-                    className="copy-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                  </svg>
-                  Copy
-                </>
+                <Copy className="entry-action-icon" size={16} strokeWidth={2} />
               )}
             </button>
-            <button type="button" className="edit-btn" onClick={onEdit}>
-              Edit
+            <button type="button" className="edit-btn" onClick={onEdit} title="Edit">
+              <Pencil className="entry-action-icon" size={16} strokeWidth={2} />
             </button>
             <button
               type="button"
               className="attach-image-btn"
-              title="Upload image for this tweet"
+              title="Upload image"
               onClick={() => fileInputRef.current?.click()}
             >
-              Image
+              <ImagePlus className="entry-action-icon" size={16} strokeWidth={2} />
             </button>
             <input
               ref={fileInputRef}
@@ -1374,14 +1353,19 @@ function EntryCard({
               <button
                 type="button"
                 className="remove-image-btn"
-                title="Remove attached image"
+                title="Remove image"
                 onClick={() => onRemoveImage(entry.id)}
               >
-                Remove image
+                <ImageOff className="entry-action-icon" size={16} strokeWidth={2} />
               </button>
             )}
-            <button type="button" className="delete-btn" onClick={() => onDelete(entry.id)}>
-              Delete
+            <button
+              type="button"
+              className="delete-btn"
+              onClick={() => onDelete(entry.id)}
+              title="Delete"
+            >
+              <Trash2 className="entry-action-icon" size={16} strokeWidth={2} />
             </button>
           </div>
         </div>
