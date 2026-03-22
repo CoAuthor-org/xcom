@@ -42,7 +42,6 @@ function formatDate(timestamp?: string): string {
 }
 
 export function XPoster() {
-  const [text, setText] = React.useState("");
   const [entries, setEntries] = React.useState<Entry[]>([]);
   const [message, setMessage] = React.useState<{ text: string; type: string }>({ text: "", type: "" });
   const [llmEnabled, setLlmEnabled] = React.useState(false);
@@ -56,12 +55,13 @@ export function XPoster() {
   const [isThread, setIsThread] = React.useState(false);
   const [threadLength, setThreadLength] = React.useState(4);
   const [isPoll, setIsPoll] = React.useState(false);
-  const [generateLoading, setGenerateLoading] = React.useState(false);
   const [notesLoading, setNotesLoading] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editText, setEditText] = React.useState("");
   const [dequeueLoading, setDequeueLoading] = React.useState(false);
   const [deletePostedLoading, setDeletePostedLoading] = React.useState(false);
+  const [queueFilter, setQueueFilter] = React.useState<Set<string>>(new Set());
+  const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
 
   const showMessage = React.useCallback((text: string, type: string) => {
     setMessage({ text, type });
@@ -109,65 +109,6 @@ export function XPoster() {
     const time = new Date().toLocaleTimeString("en-US", { hour12: false });
     setNotesLog((prev) => [...prev, { msg, kind, time }]);
   }, []);
-
-  const charCountClass =
-    text.length >= 260 ? "danger" : text.length >= 200 ? "warning" : "";
-
-  const handleSubmit = async () => {
-    const t = text.trim();
-    if (!t || t.length > 280) {
-      showMessage("Text must be between 1 and 280 characters", "error");
-      return;
-    }
-    try {
-      const res = await fetch("/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: t }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        showMessage("Saved successfully!", "success");
-        setText("");
-        loadEntries();
-      } else {
-        showMessage(data.error || "Something went wrong", "error");
-      }
-    } catch {
-      showMessage(SERVER_UNREACHABLE_MSG, "error");
-    }
-  };
-
-  const handleGenerate = async () => {
-    if (!llmEnabled) {
-      showMessage("AI features not configured. Set XAI_API_KEY.", "error");
-      return;
-    }
-    setGenerateLoading(true);
-    try {
-      const action = text.trim().length > 0 ? "enhance" : "generate";
-      const prompt =
-        text.trim().length > 0
-          ? text.trim()
-          : "Write an interesting, engaging short thought or observation under 280 characters";
-      const res = await fetch("/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, action }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setText(data.text?.substring(0, 280) ?? "");
-        showMessage("Text generated!", "success");
-      } else {
-        showMessage(data.error || "Failed to generate", "error");
-      }
-    } catch {
-      showMessage(SERVER_UNREACHABLE_MSG, "error");
-    } finally {
-      setGenerateLoading(false);
-    }
-  };
 
   const handleDequeueAll = async () => {
     setDequeueLoading(true);
@@ -380,10 +321,55 @@ export function XPoster() {
   const count12pm = entries.filter((e) => (e.queue || "") === "12pm").length;
   const count4pm = entries.filter((e) => (e.queue || "") === "4pm").length;
   const count8pm = entries.filter((e) => (e.queue || "") === "8pm").length;
+  const countUnscheduled = entries.filter((e) => !(e.queue || "").trim()).length;
+
+  const byThreadFull: Record<string, Entry[]> = {};
+  for (const e of entries) {
+    const tid = e.threadId ?? null;
+    if (tid) {
+      if (!byThreadFull[tid]) byThreadFull[tid] = [];
+      byThreadFull[tid].push(e);
+    }
+  }
+  type EntryType = "thread" | "poll" | "single";
+  const getEntryType = (e: Entry): EntryType => {
+    if ((e.pollOptions?.length ?? 0) > 0) return "poll";
+    if (e.threadId && (byThreadFull[e.threadId]?.length ?? 0) > 1) return "thread";
+    return "single";
+  };
+  const countThreads = entries.filter((e) => getEntryType(e) === "thread").length;
+  const countPolls = entries.filter((e) => getEntryType(e) === "poll").length;
+  const countSingle = entries.filter((e) => getEntryType(e) === "single").length;
+
+  const queueMatches = (e: Entry) =>
+    queueFilter.size === 0 ||
+    (queueFilter.has("unscheduled") && !(e.queue || "").trim()) ||
+    (!!(e.queue || "").trim() && queueFilter.has(e.queue || ""));
+  const typeMatches = (e: Entry) =>
+    typeFilter.size === 0 || typeFilter.has(getEntryType(e));
+
+  const filteredEntries = entries.filter((e) => queueMatches(e) && typeMatches(e));
+
+  const toggleQueueFilter = (queue: string) => {
+    setQueueFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(queue)) next.delete(queue);
+      else next.add(queue);
+      return next;
+    });
+  };
+  const toggleTypeFilter = (type: string) => {
+    setTypeFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
 
   const byThread: Record<string, Entry[]> = {};
   const standalone: Entry[] = [];
-  for (const e of entries) {
+  for (const e of filteredEntries) {
     const tid = e.threadId ?? null;
     if (tid) {
       if (!byThread[tid]) byThread[tid] = [];
@@ -614,46 +600,13 @@ export function XPoster() {
     <div className="xposter">
       <div className="xp-app">
         <div className="xp-panel">
-          <h1 className="xp-panel-header">Compose</h1>
+          <h1 className="xp-panel-header">Notes → Tweets</h1>
           <div className="input-section">
-            <textarea
-              maxLength={280}
-              placeholder="What's on your mind? (280 characters max)"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
-            <div className="footer">
-              <span className={`char-count ${charCountClass}`}>
-                {text.length} / 280
-              </span>
-              <div className="btn-group">
-                <button
-                  type="button"
-                  className={`xp-btn generate-btn ${generateLoading ? "loading" : ""}`}
-                  onClick={handleGenerate}
-                  disabled={generateLoading}
-                >
-                  <svg className="sparkle-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 0L14.59 9.41L24 12L14.59 14.59L12 24L9.41 14.59L0 12L9.41 9.41L12 0Z" />
-                  </svg>
-                  <span className="btn-text">Generate</span>
-                  <span className="spinner" />
-                </button>
-                <button
-                  type="button"
-                  className="xp-btn"
-                  onClick={handleSubmit}
-                  disabled={text.length === 0}
-                >
-                  Save
-                </button>
-              </div>
-            </div>
             {message.text && (
               <div className={`message ${message.type}`}>{message.text}</div>
             )}
             <div className="notes-section">
-              <label className="notes-label">Notes → Tweets (RAG)</label>
+              <label className="notes-label">Select note and generate</label>
               <div className="notes-row">
                 <select
                   value={selectedNote}
@@ -834,13 +787,85 @@ export function XPoster() {
           <h1 className="xp-panel-header">
             Saved Texts
             <span className="entries-count">
-              ({entries.length})
+              ({filteredEntries.length}
+              {(queueFilter.size > 0 || typeFilter.size > 0) && ` of ${entries.length}`})
               <span className="queue-count">
                 {" "}
-                · <span className="q-8am">8am: {count8am}</span> ·{" "}
-                <span className="q-12pm">12pm: {count12pm}</span> ·{" "}
-                <span className="q-4pm">4pm: {count4pm}</span> ·{" "}
-                <span className="q-8pm">8pm: {count8pm}</span>
+                ·{" "}
+                <button
+                  type="button"
+                  className={`queue-filter-btn q-8am ${queueFilter.has("8am") ? "active" : ""}`}
+                  onClick={() => toggleQueueFilter("8am")}
+                  title="Filter: 8am queue"
+                >
+                  8am: {count8am}
+                </button>{" "}
+                ·{" "}
+                <button
+                  type="button"
+                  className={`queue-filter-btn q-12pm ${queueFilter.has("12pm") ? "active" : ""}`}
+                  onClick={() => toggleQueueFilter("12pm")}
+                  title="Filter: 12pm queue"
+                >
+                  12pm: {count12pm}
+                </button>{" "}
+                ·{" "}
+                <button
+                  type="button"
+                  className={`queue-filter-btn q-4pm ${queueFilter.has("4pm") ? "active" : ""}`}
+                  onClick={() => toggleQueueFilter("4pm")}
+                  title="Filter: 4pm queue"
+                >
+                  4pm: {count4pm}
+                </button>{" "}
+                ·{" "}
+                <button
+                  type="button"
+                  className={`queue-filter-btn q-8pm ${queueFilter.has("8pm") ? "active" : ""}`}
+                  onClick={() => toggleQueueFilter("8pm")}
+                  title="Filter: 8pm queue"
+                >
+                  8pm: {count8pm}
+                </button>{" "}
+                ·{" "}
+                <button
+                  type="button"
+                  className={`queue-filter-btn q-unscheduled ${queueFilter.has("unscheduled") ? "active" : ""}`}
+                  onClick={() => toggleQueueFilter("unscheduled")}
+                  title="Filter: posts not assigned to any queue"
+                >
+                  Unscheduled: {countUnscheduled}
+                </button>
+              </span>
+              <span className="type-filter">
+                {" "}
+                ·{" "}
+                <button
+                  type="button"
+                  className={`type-filter-btn ${typeFilter.has("thread") ? "active" : ""}`}
+                  onClick={() => toggleTypeFilter("thread")}
+                  title="Filter: threads only"
+                >
+                  Threads: {countThreads}
+                </button>{" "}
+                ·{" "}
+                <button
+                  type="button"
+                  className={`type-filter-btn ${typeFilter.has("poll") ? "active" : ""}`}
+                  onClick={() => toggleTypeFilter("poll")}
+                  title="Filter: polls only"
+                >
+                  Polls: {countPolls}
+                </button>{" "}
+                ·{" "}
+                <button
+                  type="button"
+                  className={`type-filter-btn ${typeFilter.has("single") ? "active" : ""}`}
+                  onClick={() => toggleTypeFilter("single")}
+                  title="Filter: single posts only"
+                >
+                  Single: {countSingle}
+                </button>
               </span>
             </span>
             <button
@@ -863,13 +888,13 @@ export function XPoster() {
             </button>
           </h1>
           <div className="entries-list">
-            {entries.length === 0 ? (
+            {filteredEntries.length === 0 ? (
               <div className="empty-state">
                 <div className="empty-state-icon">📝</div>
                 <p>
-                  No saved texts yet.
-                  <br />
-                  Start by composing one!
+                  {entries.length === 0
+                    ? "No saved texts yet. Start by composing one!"
+                    : "No posts match the selected filters. Click queue or type buttons above to change filters."}
                 </p>
               </div>
             ) : (
