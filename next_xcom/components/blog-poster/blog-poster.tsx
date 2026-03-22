@@ -2,9 +2,7 @@
 
 import * as React from "react";
 import { Github, LogOut } from "lucide-react";
-
-const selectClass =
-  "w-full rounded-lg border-2 border-[#38444d] bg-[#15202b] px-4 py-3 text-[#e7e9ea] outline-none transition-colors focus:border-[#1d9bf0]";
+import "./blog-poster.css";
 
 const ADDITIONAL_TWEAKS_KEY = "blog-poster-additional-tweaks";
 
@@ -145,17 +143,15 @@ export function BlogPoster() {
   };
 
   return (
-    <div className="min-h-full p-6 md:p-8">
+    <div className="blog-poster">
       <div className="mx-auto max-w-2xl space-y-6">
         {/* Notes selector */}
-        <div className="rounded-2xl border border-[#38444d] bg-[#192734] p-6">
-          <label className="mb-2 block text-sm font-medium text-[#8899a6]">
-            Notes
-          </label>
+        <div className="blog-poster-card">
+          <label className="blog-poster-label">Notes</label>
           <select
             value={selectedNote}
             onChange={(e) => setSelectedNote(e.target.value)}
-            className={selectClass}
+            className="blog-poster-select"
           >
             <option value="">Select a note file...</option>
             {notesFiles.map((f) => (
@@ -167,20 +163,18 @@ export function BlogPoster() {
         </div>
 
         {/* GitHub section */}
-        <div className="rounded-2xl border border-[#38444d] bg-[#192734] p-6">
+        <div className="blog-poster-card">
           <div className="mb-4 flex items-center justify-between">
-            <label className="text-sm font-medium text-[#8899a6]">
-              GitHub
-            </label>
+            <label className="blog-poster-label mb-0">GitHub</label>
             {githubStatus?.connected ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-[#00ba7c]">
+                <span className="blog-poster-user-badge">
                   @{githubStatus.user?.login}
                 </span>
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-[#8899a6] hover:bg-[#22303c] hover:text-[#e7e9ea]"
+                  className="blog-poster-disconnect-btn"
                   title="Disconnect GitHub"
                 >
                   <LogOut className="h-3.5 w-3.5" />
@@ -190,7 +184,7 @@ export function BlogPoster() {
             ) : (
               <a
                 href="/api/github/auth"
-                className="inline-flex items-center gap-2 rounded-lg bg-[#238636] px-4 py-2 text-sm font-medium text-white hover:bg-[#2ea043]"
+                className="blog-poster-connect-btn"
               >
                 <Github className="h-4 w-4" />
                 Connect GitHub
@@ -199,7 +193,7 @@ export function BlogPoster() {
           </div>
 
           {!githubStatus?.configured && (
-            <p className="mb-4 text-sm text-[#f0883e]">
+            <p className="blog-poster-warning">
               Add GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET to .env to enable.
             </p>
           )}
@@ -207,13 +201,13 @@ export function BlogPoster() {
           {githubStatus?.connected && (
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-xs font-medium text-[#8b98a5]">
+                <label className="blog-poster-label">
                   Organization
                 </label>
                 <select
                   value={selectedOrg}
                   onChange={(e) => setSelectedOrg(e.target.value)}
-                  className={selectClass}
+                  className="blog-poster-select"
                   disabled={orgsLoading}
                 >
                   <option value="">Select an organization...</option>
@@ -226,13 +220,13 @@ export function BlogPoster() {
               </div>
 
               <div>
-                <label className="mb-2 block text-xs font-medium text-[#8b98a5]">
+                <label className="blog-poster-label">
                   Pull requests ({selectedOrg || "select org"})
                 </label>
                 <select
                   value={selectedPr}
                   onChange={(e) => setSelectedPr(e.target.value)}
-                  className={selectClass}
+                  className="blog-poster-select"
                   disabled={!selectedOrg || prsLoading}
                 >
                   <option value="">
@@ -254,16 +248,14 @@ export function BlogPoster() {
         </div>
 
         {/* Additional tweaks */}
-        <div className="rounded-2xl border border-[#38444d] bg-[#192734] p-6">
-          <label className="mb-2 block text-sm font-medium text-[#8899a6]">
-            Additional tweaks
-          </label>
+        <div className="blog-poster-card">
+          <label className="blog-poster-label">Additional tweaks</label>
           <textarea
             value={additionalTweaks}
             onChange={(e) => setAdditionalTweaks(e.target.value)}
             placeholder="Paste any additional context or tweaks here..."
             rows={8}
-            className="w-full resize-y rounded-lg border-2 border-[#38444d] bg-[#15202b] px-4 py-3 text-[#e7e9ea] placeholder-[#8899a6] outline-none transition-colors focus:border-[#1d9bf0]"
+            className="blog-poster-textarea"
           />
         </div>
       </div>

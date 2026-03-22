@@ -1,0 +1,124 @@
+/* BlogPoster - Neumorphic UI (matches XPoster) */
+.blog-poster {
+  --neo-bg: #e0e0e0;
+  --neo-shadow-dark: #bebebe;
+  --neo-shadow-light: #ffffff;
+  --neo-text: #2d2d2d;
+  --neo-text-muted: #6b6b6b;
+  --neo-accent: #1d9bf0;
+  --neo-success: #00ba7c;
+  --neo-warning: #f0883e;
+  --neo-raised: 6px 6px 12px var(--neo-shadow-dark), -6px -6px 12px var(--neo-shadow-light);
+  --neo-inset-sm: inset 4px 4px 8px var(--neo-shadow-dark), inset -4px -4px 8px var(--neo-shadow-light);
+}
+
+.blog-poster {
+  min-height: 100%;
+  padding: 24px 24px 32px;
+  background: var(--neo-bg);
+  color: var(--neo-text);
+}
+
+@media (max-width: 768px) {
+  .blog-poster {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .blog-poster {
+    padding: 12px;
+  }
+}
+
+.blog-poster-card {
+  background: var(--neo-bg);
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: var(--neo-raised);
+}
+
+.blog-poster-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--neo-text-muted);
+}
+
+.blog-poster-select,
+.blog-poster-textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 16px;
+  background: var(--neo-bg);
+  color: var(--neo-text);
+  font-size: 1rem;
+  outline: none;
+  box-shadow: var(--neo-inset-sm);
+  transition: box-shadow 0.2s;
+}
+
+.blog-poster-select:focus,
+.blog-poster-textarea:focus {
+  box-shadow: inset 4px 4px 8px var(--neo-shadow-dark), inset -4px -4px 8px var(--neo-shadow-light),
+    0 0 0 2px rgba(29, 155, 240, 0.3);
+}
+
+.blog-poster-select::placeholder,
+.blog-poster-textarea::placeholder {
+  color: var(--neo-text-muted);
+}
+
+.blog-poster-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.blog-poster-connect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: white;
+  background: #238636;
+  box-shadow: var(--neo-raised);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.blog-poster-connect-btn:hover {
+  box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.blog-poster-disconnect-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  color: var(--neo-text-muted);
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+  transition: box-shadow 0.2s;
+}
+
+.blog-poster-disconnect-btn:hover {
+  box-shadow: var(--neo-inset-sm);
+  color: var(--neo-text);
+}
+
+.blog-poster-user-badge {
+  font-size: 0.875rem;
+  color: var(--neo-success);
+}
+
+.blog-poster-warning {
+  margin-top: 12px;
+  font-size: 0.875rem;
+  color: var(--neo-warning);
+}
