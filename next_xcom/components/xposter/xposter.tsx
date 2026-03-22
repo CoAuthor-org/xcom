@@ -62,6 +62,7 @@ export function XPoster() {
   const [deletePostedLoading, setDeletePostedLoading] = React.useState(false);
   const [queueFilter, setQueueFilter] = React.useState<Set<string>>(new Set());
   const [typeFilter, setTypeFilter] = React.useState<Set<string>>(new Set());
+  const [selectedUnits, setSelectedUnits] = React.useState<Set<string>>(new Set());
 
   const showMessage = React.useCallback((text: string, type: string) => {
     setMessage({ text, type });
@@ -387,6 +388,20 @@ export function XPoster() {
     });
   };
 
+  const getSelectUnitId = (entry: Entry, threadPos?: { index: number; total: number }) =>
+    threadPos && threadPos.index === 1 && entry.threadId ? entry.threadId : entry.id;
+  const isSelectable = (entry: Entry, threadPos?: { index: number; total: number }) =>
+    !threadPos || threadPos.index === 1;
+  const isUnitSelected = (unitId: string) => selectedUnits.has(unitId);
+  const toggleSelectUnit = (unitId: string) => {
+    setSelectedUnits((prev) => {
+      const next = new Set(prev);
+      if (next.has(unitId)) next.delete(unitId);
+      else next.add(unitId);
+      return next;
+    });
+  };
+
   const byThread: Record<string, Entry[]> = {};
   const standalone: Entry[] = [];
   for (const e of filteredEntries) {
@@ -586,6 +601,14 @@ export function XPoster() {
       );
     }
 
+    const unitId = getSelectUnitId(entry, threadPos);
+    const selectable = isSelectable(entry, threadPos);
+    const selected =
+      threadPos && entry.threadId
+        ? isUnitSelected(entry.threadId)
+        : isUnitSelected(entry.id);
+    const effectiveCardClass = `${cardClass}${selected ? " selected" : ""}`;
+
     return (
       <EntryCard
         key={entry.id}
@@ -597,7 +620,10 @@ export function XPoster() {
         pollOptionsHtml={pollOptionsHtml}
         imageHtml={imageHtml}
         postedBadge={postedBadge}
-        cardClass={cardClass}
+        cardClass={effectiveCardClass}
+        selectable={selectable}
+        selected={selected}
+        onToggleSelect={() => toggleSelectUnit(unitId)}
         onCopy={(txt) => {
           navigator.clipboard.writeText(txt).then(() => {
             showMessage("Copied!", "success");
@@ -879,6 +905,9 @@ export function XPoster() {
               </button>
             </div>
             <div className="xp-panel-actions">
+              {selectedUnits.size > 0 && (
+                <span className="selected-count-badge">{selectedUnits.size} selected</span>
+              )}
               <button
                 type="button"
                 className="dequeue-all-btn"
@@ -913,8 +942,12 @@ export function XPoster() {
               groupOrder.map((group) => {
                 if (group.type === "thread" && group.entries.length > 1) {
                   const q = group.entries[0]?.queue || "";
+                  const threadSelected = selectedUnits.has(group.id);
                   return (
-                    <div key={group.id} className="thread-container">
+                    <div
+                      key={group.id}
+                      className={`thread-container${threadSelected ? " selected" : ""}`}
+                    >
                       <div className="thread-header">
                         Thread ({group.entries.length} posts)
                         {q ? ` · ${q}` : ""}
@@ -962,6 +995,9 @@ function EntryCard({
   onUploadImage,
   onRemoveImage,
   onDelete,
+  selectable,
+  selected,
+  onToggleSelect,
 }: {
   entry: Entry;
   threadPos?: { index: number; total: number };
@@ -973,6 +1009,9 @@ function EntryCard({
   queue: string;
   postedBadge: string;
   cardClass: string;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
   onCopy: (text: string) => void;
   onEdit: () => void;
   onSetQueue: (id: string, queue: string | null) => void;
@@ -1024,7 +1063,28 @@ function EntryCard({
       }}
       onDrop={handleDrop}
     >
-      <div className="entry-view">
+      <div className={`entry-view${selectable ? " has-checkbox" : ""}`}>
+        {selectable && (
+          <button
+            type="button"
+            className={`entry-select-checkbox ${selected ? "checked" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.();
+            }}
+            title={selected ? "Deselect" : "Select"}
+            aria-pressed={selected}
+          >
+            <span className="checkbox-inner">
+              {selected && (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </span>
+          </button>
+        )}
+        <div className="entry-view-body">
         {threadBadge && <span dangerouslySetInnerHTML={{ __html: threadBadge }} />}
         {topicLabel && <span dangerouslySetInnerHTML={{ __html: topicLabel }} />}
         {pollBadge && <span dangerouslySetInnerHTML={{ __html: pollBadge }} />}
@@ -1124,6 +1184,7 @@ function EntryCard({
               Delete
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>
