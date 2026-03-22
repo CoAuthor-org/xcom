@@ -1,19 +1,10 @@
-# Manual-only: Post next tweet from a chosen queue. For scheduled runs, use cron-post-8am/12pm/4pm/8pm.yml
-name: Cron post next tweet (manual)
+# Post next tweet from 12pm queue. Scheduled 1h early (11am IST) to absorb GitHub Actions delay.
+name: Cron post 12pm
 
 on:
+  schedule:
+    - cron: '30 5 * * *'   # 05:30 UTC = 11:00am IST (buffer for ~60min delay → actual run ~12pm)
   workflow_dispatch:
-    inputs:
-      queue:
-        description: 'Queue to run (8am, 12pm, 4pm, 8pm)'
-        required: true
-        default: '8am'
-        type: choice
-        options:
-          - '8am'
-          - '12pm'
-          - '4pm'
-          - '8pm'
 
 env:
   NODE_VERSION: '22'
@@ -37,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Post next tweet
+      - name: Post next tweet (12pm queue)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -45,5 +36,5 @@ jobs:
           X_API_SECRET: ${{ secrets.X_API_SECRET }}
           X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
           X_ACCESS_TOKEN_SECRET: ${{ secrets.X_ACCESS_TOKEN_SECRET }}
-          SCHEDULE_QUEUE: ${{ github.event.inputs.queue }}
+          SCHEDULE_QUEUE: '12pm'
         run: npm run cron:post

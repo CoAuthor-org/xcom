@@ -6,7 +6,12 @@ This folder and the GitHub Action run the **scheduler** for your content pipelin
 
 - **Four queues**: Each entry has a `queue` column: `'8am'`, `'12pm'`, `'4pm'`, or `'8pm'` (or null = not scheduled). In the app you assign a queue per entry.
 - **Runs**: At **8:00**, **12:00**, **4:00**, and **8:00 PM IST** the job picks the oldest entry/thread with the matching queue and `posted_at IS NULL`, posts it to X, and sets `posted_at`.
-- **Schedule**: GitHub Actions runs at **02:30**, **06:30**, **10:30**, **14:30 UTC** (= 8am, 12pm, 4pm, 8pm IST; see `.github/workflows/cron-post.yml`). You can also trigger manually and optionally choose which queue to run (Actions → Cron post next tweet → Run workflow).
+- **Schedule**: Four separate workflows, each with a 1–1.5h buffer to absorb GitHub Actions delay:
+  - `cron-post-8am.yml`: 01:00 UTC = 6:30am IST (posts 8am queue)
+  - `cron-post-12pm.yml`: 05:30 UTC = 11:00am IST (posts 12pm queue)
+  - `cron-post-4pm.yml`: 09:30 UTC = 3:00pm IST (posts 4pm queue)
+  - `cron-post-8pm.yml`: 13:30 UTC = 7:00pm IST (posts 8pm queue)
+- **Manual run**: Actions → Cron post next tweet (manual) → choose queue and Run workflow.
 
 ## Prerequisites
 
