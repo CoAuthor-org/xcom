@@ -317,12 +317,6 @@ export function XPoster() {
     }
   };
 
-  const count8am = entries.filter((e) => (e.queue || "") === "8am").length;
-  const count12pm = entries.filter((e) => (e.queue || "") === "12pm").length;
-  const count4pm = entries.filter((e) => (e.queue || "") === "4pm").length;
-  const count8pm = entries.filter((e) => (e.queue || "") === "8pm").length;
-  const countUnscheduled = entries.filter((e) => !(e.queue || "").trim()).length;
-
   const byThreadFull: Record<string, Entry[]> = {};
   for (const e of entries) {
     const tid = e.threadId ?? null;
@@ -331,13 +325,39 @@ export function XPoster() {
       byThreadFull[tid].push(e);
     }
   }
+  for (const tid of Object.keys(byThreadFull)) {
+    byThreadFull[tid].sort((a, b) => (a.threadIndex ?? 0) - (b.threadIndex ?? 0));
+  }
+
   type EntryType = "thread" | "poll" | "single";
   const getEntryType = (e: Entry): EntryType => {
     if ((e.pollOptions?.length ?? 0) > 0) return "poll";
     if (e.threadId && (byThreadFull[e.threadId]?.length ?? 0) > 1) return "thread";
     return "single";
   };
-  const countThreads = entries.filter((e) => getEntryType(e) === "thread").length;
+
+  const countingUnits: { queue: string }[] = [];
+  const countedThreadIds = new Set<string>();
+  for (const e of entries) {
+    if (e.threadId && byThreadFull[e.threadId]?.length > 1) {
+      if (!countedThreadIds.has(e.threadId)) {
+        countedThreadIds.add(e.threadId);
+        const firstInThread = byThreadFull[e.threadId][0];
+        countingUnits.push({ queue: firstInThread?.queue || "" });
+      }
+    } else {
+      countingUnits.push({ queue: e.queue || "" });
+    }
+  }
+
+  const count8am = countingUnits.filter((u) => u.queue === "8am").length;
+  const count12pm = countingUnits.filter((u) => u.queue === "12pm").length;
+  const count4pm = countingUnits.filter((u) => u.queue === "4pm").length;
+  const count8pm = countingUnits.filter((u) => u.queue === "8pm").length;
+  const countUnscheduled = countingUnits.filter((u) => !u.queue.trim()).length;
+  const countThreads = Object.keys(byThreadFull).filter(
+    (tid) => byThreadFull[tid].length > 1
+  ).length;
   const countPolls = entries.filter((e) => getEntryType(e) === "poll").length;
   const countSingle = entries.filter((e) => getEntryType(e) === "single").length;
 
