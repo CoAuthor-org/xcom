@@ -784,109 +784,101 @@ export function XPoster() {
         </div>
 
         <div className="xp-panel">
-          <h1 className="xp-panel-header">
-            Saved Texts
-            <span className="entries-count">
-              ({filteredEntries.length}
-              {(queueFilter.size > 0 || typeFilter.size > 0) && ` of ${entries.length}`})
-              <span className="queue-count">
-                {" "}
-                ·{" "}
-                <button
-                  type="button"
-                  className={`queue-filter-btn q-8am ${queueFilter.has("8am") ? "active" : ""}`}
-                  onClick={() => toggleQueueFilter("8am")}
-                  title="Filter: 8am queue"
-                >
-                  8am: {count8am}
-                </button>{" "}
-                ·{" "}
-                <button
-                  type="button"
-                  className={`queue-filter-btn q-12pm ${queueFilter.has("12pm") ? "active" : ""}`}
-                  onClick={() => toggleQueueFilter("12pm")}
-                  title="Filter: 12pm queue"
-                >
-                  12pm: {count12pm}
-                </button>{" "}
-                ·{" "}
-                <button
-                  type="button"
-                  className={`queue-filter-btn q-4pm ${queueFilter.has("4pm") ? "active" : ""}`}
-                  onClick={() => toggleQueueFilter("4pm")}
-                  title="Filter: 4pm queue"
-                >
-                  4pm: {count4pm}
-                </button>{" "}
-                ·{" "}
-                <button
-                  type="button"
-                  className={`queue-filter-btn q-8pm ${queueFilter.has("8pm") ? "active" : ""}`}
-                  onClick={() => toggleQueueFilter("8pm")}
-                  title="Filter: 8pm queue"
-                >
-                  8pm: {count8pm}
-                </button>{" "}
-                ·{" "}
-                <button
-                  type="button"
-                  className={`queue-filter-btn q-unscheduled ${queueFilter.has("unscheduled") ? "active" : ""}`}
-                  onClick={() => toggleQueueFilter("unscheduled")}
-                  title="Filter: posts not assigned to any queue"
-                >
-                  Unscheduled: {countUnscheduled}
-                </button>
+          <div className="xp-panel-header">
+            <div className="xp-panel-title-row">
+              <h1 className="xp-panel-title">Saved Texts</h1>
+              <span className="entries-count">
+                ({filteredEntries.length}
+                {(queueFilter.size > 0 || typeFilter.size > 0) && ` of ${entries.length}`})
               </span>
-              <span className="type-filter">
-                {" "}
-                ·{" "}
-                <button
-                  type="button"
-                  className={`type-filter-btn ${typeFilter.has("thread") ? "active" : ""}`}
-                  onClick={() => toggleTypeFilter("thread")}
-                  title="Filter: threads only"
-                >
-                  Threads: {countThreads}
-                </button>{" "}
-                ·{" "}
-                <button
-                  type="button"
-                  className={`type-filter-btn ${typeFilter.has("poll") ? "active" : ""}`}
-                  onClick={() => toggleTypeFilter("poll")}
-                  title="Filter: polls only"
-                >
-                  Polls: {countPolls}
-                </button>{" "}
-                ·{" "}
-                <button
-                  type="button"
-                  className={`type-filter-btn ${typeFilter.has("single") ? "active" : ""}`}
-                  onClick={() => toggleTypeFilter("single")}
-                  title="Filter: single posts only"
-                >
-                  Single: {countSingle}
-                </button>
-              </span>
-            </span>
-            <button
-              type="button"
-              className="dequeue-all-btn"
-              onClick={handleDequeueAll}
-              disabled={dequeueLoading}
-              title="Remove all posts from 8am, 12pm, 4pm and 8pm queues"
-            >
-              Dequeue All
-            </button>
-            <button
-              type="button"
-              className="dequeue-all-btn delete-posted-btn"
-              onClick={handleDeletePosted}
-              disabled={deletePostedLoading}
-              title="Remove only entries already posted to X (unposted stay)"
-            >
-              Delete posted
-            </button>
-          </h1>
+            </div>
+            <div className="xp-panel-filters">
+              <button
+                type="button"
+                className={`queue-filter-btn q-8am ${queueFilter.has("8am") ? "active" : ""}`}
+                onClick={() => toggleQueueFilter("8am")}
+                title="Filter: 8am queue"
+              >
+                8am: {count8am}
+              </button>
+              <button
+                type="button"
+                className={`queue-filter-btn q-12pm ${queueFilter.has("12pm") ? "active" : ""}`}
+                onClick={() => toggleQueueFilter("12pm")}
+                title="Filter: 12pm queue"
+              >
+                12pm: {count12pm}
+              </button>
+              <button
+                type="button"
+                className={`queue-filter-btn q-4pm ${queueFilter.has("4pm") ? "active" : ""}`}
+                onClick={() => toggleQueueFilter("4pm")}
+                title="Filter: 4pm queue"
+              >
+                4pm: {count4pm}
+              </button>
+              <button
+                type="button"
+                className={`queue-filter-btn q-8pm ${queueFilter.has("8pm") ? "active" : ""}`}
+                onClick={() => toggleQueueFilter("8pm")}
+                title="Filter: 8pm queue"
+              >
+                8pm: {count8pm}
+              </button>
+              <button
+                type="button"
+                className={`queue-filter-btn q-unscheduled ${queueFilter.has("unscheduled") ? "active" : ""}`}
+                onClick={() => toggleQueueFilter("unscheduled")}
+                title="Filter: posts not assigned to any queue"
+              >
+                Unscheduled: {countUnscheduled}
+              </button>
+              <button
+                type="button"
+                className={`type-filter-btn ${typeFilter.has("thread") ? "active" : ""}`}
+                onClick={() => toggleTypeFilter("thread")}
+                title="Filter: threads only"
+              >
+                Threads: {countThreads}
+              </button>
+              <button
+                type="button"
+                className={`type-filter-btn ${typeFilter.has("poll") ? "active" : ""}`}
+                onClick={() => toggleTypeFilter("poll")}
+                title="Filter: polls only"
+              >
+                Polls: {countPolls}
+              </button>
+              <button
+                type="button"
+                className={`type-filter-btn ${typeFilter.has("single") ? "active" : ""}`}
+                onClick={() => toggleTypeFilter("single")}
+                title="Filter: single posts only"
+              >
+                Single: {countSingle}
+              </button>
+            </div>
+            <div className="xp-panel-actions">
+              <button
+                type="button"
+                className="dequeue-all-btn"
+                onClick={handleDequeueAll}
+                disabled={dequeueLoading}
+                title="Remove all posts from 8am, 12pm, 4pm and 8pm queues"
+              >
+                Dequeue All
+              </button>
+              <button
+                type="button"
+                className="dequeue-all-btn delete-posted-btn"
+                onClick={handleDeletePosted}
+                disabled={deletePostedLoading}
+                title="Remove only entries already posted to X (unposted stay)"
+              >
+                Delete posted
+              </button>
+            </div>
+          </div>
           <div className="entries-list">
             {filteredEntries.length === 0 ? (
               <div className="empty-state">

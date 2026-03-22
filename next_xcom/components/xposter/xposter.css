@@ -38,9 +38,8 @@
     padding: 16px;
   }
 
-  .xposter .xp-panel-header {
+  .xposter .xp-panel-title {
     font-size: 1.1rem;
-    flex-wrap: wrap;
   }
 
   .xposter .notes-row {
@@ -94,19 +93,45 @@
 }
 
 .xposter .xp-panel-header {
-  font-size: 1.25rem;
-  font-weight: 700;
   margin-bottom: 20px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--xp-border);
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.xposter .xp-panel-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.xposter .xp-panel-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.xposter .xp-panel-filters {
+  display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 4px;
+}
+
+.xposter .xp-panel-filters .queue-filter-btn,
+.xposter .xp-panel-filters .type-filter-btn {
+  margin: 0;
+}
+
+.xposter .xp-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .xposter .dequeue-all-btn {
-  margin-left: auto;
   padding: 6px 12px;
   font-size: 0.8rem;
   font-weight: 600;
