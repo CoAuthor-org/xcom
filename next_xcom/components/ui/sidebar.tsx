@@ -77,7 +77,7 @@ export function SidebarTrigger() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#38444d] bg-transparent text-[#e7e9ea] hover:bg-[#192734] md:hidden touch-manipulation"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#bebebe] bg-[#e0e0e0] text-[#2d2d2d] shadow-[4px_4px_8px_#bebebe,-4px_-4px_8px_#ffffff] hover:shadow-[inset_4px_4px_8px_#bebebe,inset_-4px_-4px_8px_#ffffff] md:hidden touch-manipulation"
         aria-label="Open sidebar"
       >
         <PanelLeft className="h-5 w-5" />
@@ -89,7 +89,7 @@ export function SidebarTrigger() {
     <button
       type="button"
       onClick={() => setCollapsed(!collapsed)}
-      className="hidden h-9 w-9 items-center justify-center rounded-md border border-[#38444d] bg-transparent text-[#e7e9ea] hover:bg-[#192734] md:inline-flex"
+      className="hidden h-9 w-9 items-center justify-center rounded-md border border-[#bebebe] bg-[#e0e0e0] text-[#2d2d2d] shadow-[4px_4px_8px_#bebebe,-4px_-4px_8px_#ffffff] hover:shadow-[inset_4px_4px_8px_#bebebe,inset_-4px_-4px_8px_#ffffff] md:inline-flex"
       aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
     >
       {collapsed ? (
@@ -117,7 +117,7 @@ export function Sidebar({
             onClick={() => setOpen(false)}
           />
           <DialogPrimitive.Content
-            className="fixed inset-y-0 left-0 z-50 w-[var(--sidebar-width)] border-r border-[#38444d] bg-[#15202b] transition-transform md:hidden data-[state=open]:translate-x-0 data-[state=closed]:-translate-x-full"
+            className="fixed inset-y-0 left-0 z-50 w-[var(--sidebar-width)] border-r border-[#bebebe] bg-[#e0e0e0] transition-transform md:hidden data-[state=open]:translate-x-0 data-[state=closed]:-translate-x-full"
             onEscapeKeyDown={() => setOpen(false)}
           >
             <div className="flex h-full flex-col overflow-hidden">{children}</div>
@@ -132,7 +132,7 @@ export function Sidebar({
       data-collapsible={collapsed ? "icon" : "none"}
       className={cn(
         "group",
-        "fixed inset-y-0 left-0 z-40 hidden h-svh flex-col border-r border-[#38444d] bg-[#15202b] transition-[width] duration-200 ease-linear md:flex",
+        "fixed inset-y-0 left-0 z-40 hidden h-svh flex-col border-r border-[#bebebe] bg-[#e0e0e0] transition-[width] duration-200 ease-linear md:flex",
         collapsed ? "w-[var(--sidebar-width-icon)]" : "w-[var(--sidebar-width)]",
         className
       )}
@@ -180,7 +180,7 @@ export function SidebarGroupLabel({
   return (
     <div
       className={cn(
-        "px-2 py-1.5 text-xs font-medium text-[#8b98a5] group-data-[collapsible=icon]:hidden",
+        "px-2 py-1.5 text-xs font-medium text-[#6b6b6b] group-data-[collapsible=icon]:hidden",
         className
       )}
       data-sidebar="sidebar-group-label"
@@ -220,8 +220,8 @@ export function SidebarMenuButton({
   return (
     <button
       className={cn(
-        "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-[#192734] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0",
-        isActive ? "bg-[#192734] text-[#1d9bf0]" : "text-[#e7e9ea]",
+        "flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors hover:bg-[#d5d5d5] group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0",
+        isActive ? "bg-[#d5d5d5] text-[#1d9bf0] shadow-[inset_2px_2px_4px_#bebebe]" : "text-[#2d2d2d]",
         className
       )}
       data-sidebar="sidebar-menu-button"

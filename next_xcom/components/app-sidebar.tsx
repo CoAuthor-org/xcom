@@ -39,10 +39,10 @@ export function AppSidebar({
 
   return (
     <>
-      <Sidebar className="border-r border-[#38444d]">
+      <Sidebar className="border-r border-[#bebebe]">
         <SidebarHeader>
           <div className="flex items-center gap-2 px-2 py-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
-            <span className="font-bold text-[#e7e9ea] group-data-[collapsible=icon]:hidden">XCH</span>
+            <span className="font-bold text-[#2d2d2d] group-data-[collapsible=icon]:hidden">XCH</span>
           </div>
         </SidebarHeader>
         <SidebarContent>

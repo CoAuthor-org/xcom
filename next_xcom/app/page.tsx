@@ -13,11 +13,11 @@ export default function Home() {
   return (
     <SidebarProvider defaultCollapsed={false}>
       <AppSidebar activeId={activeId} onSelect={setActiveId} />
-      <SidebarInset>
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-[#38444d] bg-[#15202b] px-3 sm:h-14 sm:px-4 transition-[width,height] ease-linear">
+      <SidebarInset className="bg-[#e0e0e0]">
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-[#bebebe] bg-[#e0e0e0] px-3 sm:h-14 sm:px-4 transition-[width,height] ease-linear">
           <SidebarTrigger />
         </header>
-        <div className="flex-1 overflow-auto bg-[#15202b]">
+        <div className="flex-1 overflow-auto bg-[#e0e0e0]">
           {activeId === "xposter" && <XPoster />}
           {activeId === "blogposter" && <BlogPoster />}
         </div>

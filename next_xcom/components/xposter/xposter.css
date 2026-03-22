@@ -1,22 +1,30 @@
-/* XPoster styles - scoped to .xposter */
+/* XPoster - Neumorphism UI */
+:root {
+  --neo-bg: #e0e0e0;
+  --neo-shadow-dark: #bebebe;
+  --neo-shadow-light: #ffffff;
+  --neo-text: #2d2d2d;
+  --neo-text-muted: #6b6b6b;
+  --neo-accent: #1d9bf0;
+  --neo-success: #00ba7c;
+  --neo-error: #f4212e;
+  --neo-warning: #eab308;
+}
+
+/* Neumorphic shadows - raised (convex) */
 .xposter {
-  --xp-bg: #15202b;
-  --xp-panel-bg: #192734;
-  --xp-border: #38444d;
-  --xp-text: #fff;
-  --xp-text-muted: #8899a6;
-  --xp-accent: #1d9bf0;
-  --xp-success: #00ba7c;
-  --xp-error: #f4212e;
-  --xp-warning: #ffad1f;
+  --neo-raised: 6px 6px 12px var(--neo-shadow-dark), -6px -6px 12px var(--neo-shadow-light);
+  --neo-raised-lg: 20px 20px 60px var(--neo-shadow-dark), -20px -20px 60px var(--neo-shadow-light);
+  --neo-inset: inset 6px 6px 12px var(--neo-shadow-dark), inset -6px -6px 12px var(--neo-shadow-light);
+  --neo-inset-sm: inset 4px 4px 8px var(--neo-shadow-dark), inset -4px -4px 8px var(--neo-shadow-light);
 }
 
 .xposter {
   box-sizing: border-box;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: var(--xp-bg);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--neo-bg);
   min-height: 100%;
-  color: var(--xp-text);
+  color: var(--neo-text);
 }
 
 .xposter * {
@@ -27,6 +35,12 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   min-height: 100%;
+  background: var(--neo-bg);
+}
+
+.xposter .xp-panel {
+  padding: 24px;
+  background: var(--neo-bg);
 }
 
 @media (max-width: 768px) {
@@ -63,7 +77,7 @@
 
   .xposter textarea {
     height: 120px;
-    font-size: 16px; /* Prevents zoom on iOS */
+    font-size: 16px;
   }
 
   .xposter .btn-group {
@@ -83,19 +97,18 @@
   }
 }
 
-.xposter .xp-panel {
-  padding: 24px;
-  border-right: 1px solid var(--xp-border);
+.xposter .xp-panel:first-child {
+  box-shadow: 8px 0 24px -8px rgba(190, 190, 190, 0.5);
 }
 
 .xposter .xp-panel:last-child {
-  border-right: none;
+  border-left: none;
 }
 
 .xposter .xp-panel-header {
   margin-bottom: 20px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--xp-border);
+  border-bottom: none;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -111,6 +124,7 @@
   font-size: 1.25rem;
   font-weight: 700;
   margin: 0;
+  color: var(--neo-text);
 }
 
 .xposter .xp-panel-filters {
@@ -131,63 +145,74 @@
   gap: 8px;
 }
 
-.xposter .dequeue-all-btn {
-  padding: 6px 12px;
+/* Neumorphic buttons - main action style */
+.xposter .dequeue-all-btn,
+.xposter .delete-posted-btn,
+.xposter .clear-selections-btn {
+  all: unset;
+  cursor: pointer;
+  position: relative;
+  border-radius: 100em;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+  padding: 8px 16px;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--xp-text-muted);
-  background: transparent;
-  border: 1px solid #30363d;
-  border-radius: 6px;
-  cursor: pointer;
+  color: var(--neo-text-muted);
+  transition: box-shadow 0.2s, transform 0.2s;
 }
 
-.xposter .dequeue-all-btn:hover {
-  color: #c9d1d9;
-  border-color: var(--xp-text-muted);
+.xposter .dequeue-all-btn:hover:not(:disabled),
+.xposter .clear-selections-btn:hover:not(:disabled) {
+  box-shadow: var(--neo-inset-sm);
+  transform: scale(0.98);
 }
 
-.xposter .dequeue-all-btn:disabled {
+.xposter .dequeue-all-btn:disabled,
+.xposter .clear-selections-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
 }
 
 .xposter .delete-posted-btn {
-  color: #f0883e;
-  border-color: #6e3d1e;
+  color: #c46a2a;
 }
 
-.xposter .delete-posted-btn:hover {
-  color: #ffa657;
-  border-color: #f0883e;
+.xposter .delete-posted-btn:hover:not(:disabled) {
+  box-shadow: var(--neo-inset-sm);
+  transform: scale(0.98);
 }
 
 .xposter .input-section {
-  background: var(--xp-panel-bg);
-  border-radius: 16px;
-  padding: 20px;
+  background: var(--neo-bg);
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: var(--neo-raised);
 }
 
 .xposter textarea {
   width: 100%;
   height: 150px;
   padding: 16px;
-  border: 2px solid var(--xp-border);
-  border-radius: 12px;
-  background: var(--xp-bg);
-  color: var(--xp-text);
+  border: none;
+  border-radius: 16px;
+  background: var(--neo-bg);
+  color: var(--neo-text);
   font-size: 1rem;
   resize: none;
   outline: none;
-  transition: border-color 0.2s;
+  box-shadow: var(--neo-inset-sm);
+  transition: box-shadow 0.2s;
 }
 
 .xposter textarea:focus {
-  border-color: var(--xp-accent);
+  box-shadow: inset 4px 4px 8px var(--neo-shadow-dark), inset -4px -4px 8px var(--neo-shadow-light),
+    0 0 0 2px rgba(29, 155, 240, 0.3);
 }
 
 .xposter textarea::placeholder {
-  color: var(--xp-text-muted);
+  color: var(--neo-text-muted);
 }
 
 .xposter .footer {
@@ -198,32 +223,36 @@
 }
 
 .xposter .char-count {
-  color: var(--xp-text-muted);
+  color: var(--neo-text-muted);
   font-size: 0.875rem;
 }
 
 .xposter .char-count.warning {
-  color: var(--xp-warning);
+  color: var(--neo-warning);
 }
 
 .xposter .char-count.danger {
-  color: var(--xp-error);
+  color: var(--neo-error);
 }
 
+/* Neumorphic primary button */
 .xposter .xp-btn {
-  background: var(--xp-accent);
-  color: var(--xp-text);
-  border: none;
+  all: unset;
+  cursor: pointer;
+  position: relative;
+  border-radius: 100em;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
   padding: 10px 24px;
-  border-radius: 9999px;
   font-size: 0.9rem;
   font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
+  color: var(--neo-accent);
+  transition: box-shadow 0.2s, transform 0.2s;
 }
 
-.xposter .xp-btn:hover {
-  background: #1a8cd8;
+.xposter .xp-btn:hover:not(:disabled) {
+  box-shadow: var(--neo-inset-sm);
+  transform: scale(0.98);
 }
 
 .xposter .xp-btn:disabled {
@@ -234,20 +263,21 @@
 .xposter .message {
   margin-top: 12px;
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 0.875rem;
   display: none;
+  box-shadow: var(--neo-inset-sm);
 }
 
 .xposter .message.success {
-  background: rgba(0, 186, 124, 0.2);
-  color: var(--xp-success);
+  background: rgba(0, 186, 124, 0.15);
+  color: var(--neo-success);
   display: block;
 }
 
 .xposter .message.error {
-  background: rgba(244, 33, 46, 0.2);
-  color: var(--xp-error);
+  background: rgba(244, 33, 46, 0.15);
+  color: var(--neo-error);
   display: block;
 }
 
@@ -256,7 +286,9 @@
   flex-direction: column;
   gap: 12px;
   max-height: calc(100vh - 180px);
-  overflow-y: auto;
+  overflow: auto;
+  background: var(--neo-bg);
+  -webkit-overflow-scrolling: touch;
 }
 
 .xposter .entries-list > .thread-container,
@@ -264,12 +296,14 @@
   flex-shrink: 0;
 }
 
+/* Neumorphic entry card */
 .xposter .entry-card {
-  background: var(--xp-panel-bg);
-  border-radius: 12px;
-  padding: 16px;
+  background: var(--neo-bg);
+  border-radius: 20px;
+  padding: 20px;
   position: relative;
-  transition: background 0.2s;
+  box-shadow: var(--neo-raised);
+  transition: box-shadow 0.2s, transform 0.2s;
 }
 
 .xposter .entry-view.has-checkbox {
@@ -283,37 +317,39 @@
   min-width: 0;
 }
 
+/* Neumorphic checkbox */
 .xposter .entry-select-checkbox {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
   margin: 0;
   padding: 0;
-  border: 2px solid var(--xp-border);
-  border-radius: 50%;
-  background: transparent;
+  border: none;
+  border-radius: 10px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.2s, background 0.2s, transform 0.15s, box-shadow 0.2s;
+  transition: box-shadow 0.2s, transform 0.15s;
   flex-shrink: 0;
 }
 
 .xposter .entry-select-checkbox:hover {
-  border-color: var(--xp-accent);
-  background: rgba(29, 155, 240, 0.1);
-  transform: scale(1.08);
+  box-shadow: 6px 6px 14px var(--neo-shadow-dark), -6px -6px 14px var(--neo-shadow-light);
+  transform: scale(1.02);
 }
 
 .xposter .entry-select-checkbox.checked {
-  border-color: transparent;
-  background: linear-gradient(135deg, #1d9bf0 0%, #0d8bd9 100%);
-  box-shadow: 0 2px 12px rgba(29, 155, 240, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  background: #22cc3f;
+  box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.2),
+    inset -2px -2px 4px rgba(255, 255, 255, 0.2);
 }
 
 .xposter .entry-select-checkbox.checked:hover {
-  box-shadow: 0 2px 16px rgba(29, 155, 240, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.25);
-  transform: scale(1.08);
+  transform: scale(1.02);
 }
 
 .xposter .entry-select-checkbox .checkbox-inner {
@@ -323,50 +359,48 @@
 }
 
 .xposter .entry-select-checkbox .checkbox-inner svg {
-  width: 13px;
-  height: 13px;
+  width: 16px;
+  height: 16px;
   stroke: white;
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
 }
 
 .xposter .entry-card.selected {
-  outline: 2px solid var(--xp-accent);
-  outline-offset: 2px;
-  background: rgba(29, 155, 240, 0.06);
+  box-shadow: var(--neo-raised), 0 0 0 3px var(--neo-accent);
 }
 
 .xposter .thread-container.selected {
-  outline: 2px solid var(--xp-accent);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 1px rgba(29, 155, 240, 0.3);
-  background: rgba(29, 155, 240, 0.04);
+  box-shadow: var(--neo-raised), 0 0 0 3px var(--neo-accent);
 }
 
 .xposter .selected-count-badge {
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--xp-accent);
-  background: rgba(29, 155, 240, 0.15);
-  padding: 4px 10px;
-  border-radius: 20px;
+  color: var(--neo-accent);
+  background: var(--neo-bg);
+  padding: 6px 12px;
+  border-radius: 100em;
   margin-right: 4px;
   align-self: center;
+  box-shadow: var(--neo-inset-sm);
 }
 
+/* Neumorphic bulk queue buttons */
 .xposter .bulk-queue-btn {
-  padding: 4px 10px;
+  padding: 6px 12px;
   font-size: 0.75rem;
   font-weight: 600;
-  border: 1px solid currentColor;
-  border-radius: 6px;
-  background: transparent;
+  border: none;
+  border-radius: 100em;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
   cursor: pointer;
-  transition: opacity 0.2s, background 0.2s;
+  transition: box-shadow 0.2s, transform 0.2s;
 }
 
 .xposter .bulk-queue-btn:hover:not(:disabled) {
-  opacity: 0.9;
-  background: rgba(255, 255, 255, 0.08);
+  box-shadow: var(--neo-inset-sm);
+  transform: scale(0.98);
 }
 
 .xposter .bulk-queue-btn:disabled {
@@ -375,40 +409,16 @@
 }
 
 .xposter .bulk-queue-btn.q-8am { color: #1d9bf0; }
-.xposter .bulk-queue-btn.q-12pm { color: #eab308; }
+.xposter .bulk-queue-btn.q-12pm { color: #c9970a; }
 .xposter .bulk-queue-btn.q-4pm { color: #8b5cf6; }
 .xposter .bulk-queue-btn.q-8pm { color: #ec4899; }
 
-.xposter .clear-selections-btn {
-  padding: 4px 10px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--xp-text-muted);
-  background: transparent;
-  border: 1px solid var(--xp-border);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: color 0.2s, border-color 0.2s;
-}
-
-.xposter .clear-selections-btn:hover:not(:disabled) {
-  color: var(--xp-text);
-  border-color: var(--xp-text-muted);
-}
-
-.xposter .clear-selections-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .xposter .entry-card:hover {
-  background: #22303c;
+  box-shadow: 8px 8px 16px var(--neo-shadow-dark), -8px -8px 16px var(--neo-shadow-light);
 }
 
 .xposter .entry-card.drag-over {
-  outline: 2px dashed var(--xp-accent);
-  outline-offset: 2px;
-  background: rgba(29, 155, 240, 0.08);
+  box-shadow: var(--neo-raised), 0 0 0 3px dashed var(--neo-accent);
 }
 
 .xposter .entry-card.drag-over::after {
@@ -418,10 +428,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 12px;
+  background: rgba(224, 224, 224, 0.9);
+  border-radius: 20px;
   font-size: 0.9rem;
-  color: var(--xp-accent);
+  color: var(--neo-accent);
   pointer-events: none;
 }
 
@@ -431,7 +441,7 @@
   white-space: pre-wrap;
   word-break: break-word;
   margin-bottom: 12px;
-  color: #e7e9ea;
+  color: var(--neo-text);
 }
 
 .xposter .entry-image {
@@ -439,9 +449,10 @@
   max-width: 100%;
   max-height: 180px;
   width: auto;
-  border-radius: 8px;
+  border-radius: 12px;
   margin-top: 8px;
   object-fit: contain;
+  box-shadow: var(--neo-inset-sm);
 }
 
 .xposter .entry-footer {
@@ -459,29 +470,30 @@
 
 .xposter .entry-timestamp {
   font-size: 0.75rem;
-  color: var(--xp-text-muted);
+  color: var(--neo-text-muted);
 }
 
 .xposter .entry-posted-badge {
   display: inline-block;
   font-size: 0.7rem;
   font-weight: 600;
-  color: var(--xp-success);
-  background: rgba(0, 186, 124, 0.15);
-  padding: 2px 8px;
-  border-radius: 6px;
+  color: var(--neo-success);
+  background: var(--neo-bg);
+  padding: 4px 10px;
+  border-radius: 100em;
   margin-left: 8px;
+  box-shadow: var(--neo-inset-sm);
 }
 
 .xposter .entry-card.entry-card--posted {
-  border-left: 3px solid var(--xp-success);
+  border-left: 4px solid var(--neo-success);
 }
 
 .xposter .entry-topic-ref,
 .xposter .rag-topic-ref {
   display: block;
   font-size: 0.7rem;
-  color: #6e7681;
+  color: var(--neo-text-muted);
   margin-bottom: 4px;
 }
 
@@ -495,85 +507,80 @@
 
 .xposter .entry-queue-label {
   font-size: 0.7rem;
-  color: #6e7681;
+  color: var(--neo-text-muted);
   margin-right: 2px;
 }
 
+/* Neumorphic queue buttons on cards */
 .xposter .queue-btn {
-  padding: 4px 10px;
+  padding: 6px 12px;
   font-size: 0.72rem;
-  border: 1px solid var(--xp-border);
-  background: transparent;
-  color: var(--xp-text-muted);
-  border-radius: 6px;
+  border: none;
+  background: var(--neo-bg);
+  color: var(--neo-text-muted);
+  border-radius: 10px;
   cursor: pointer;
+  box-shadow: var(--neo-raised);
+  transition: box-shadow 0.2s, transform 0.2s;
 }
 
 .xposter .queue-btn:hover {
-  background: var(--xp-border);
-  color: #e7e9ea;
+  box-shadow: var(--neo-inset-sm);
+  transform: scale(0.98);
 }
 
 .xposter .queue-btn.active {
-  background: var(--xp-accent);
-  border-color: var(--xp-accent);
-  color: var(--xp-text);
+  background: var(--neo-accent);
+  color: white;
+  box-shadow: inset 3px 3px 6px rgba(0, 0, 0, 0.2);
 }
 
-.xposter .copy-btn {
-  background: transparent;
-  border: 1px solid var(--xp-border);
+/* Neumorphic action buttons on cards */
+.xposter .copy-btn,
+.xposter .edit-btn,
+.xposter .attach-image-btn,
+.xposter .remove-image-btn,
+.xposter .delete-btn {
   padding: 6px 14px;
   font-size: 0.8rem;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  border: none;
+  border-radius: 10px;
+  background: var(--neo-bg);
+  color: var(--neo-text);
+  cursor: pointer;
+  box-shadow: var(--neo-raised);
+  transition: box-shadow 0.2s, transform 0.2s;
 }
 
-.xposter .copy-btn:hover {
-  background: var(--xp-border);
+.xposter .copy-btn:hover,
+.xposter .edit-btn:hover {
+  box-shadow: var(--neo-inset-sm);
+  transform: scale(0.98);
 }
 
 .xposter .copy-btn.copied {
   background: rgba(0, 186, 124, 0.2);
-  border-color: var(--xp-success);
-  color: var(--xp-success);
+  color: var(--neo-success);
+}
+
+.xposter .attach-image-btn:hover {
+  box-shadow: var(--neo-inset-sm);
+  color: var(--neo-accent);
+}
+
+.xposter .remove-image-btn:hover {
+  box-shadow: var(--neo-inset-sm);
+  color: var(--neo-error);
+}
+
+.xposter .delete-btn:hover {
+  box-shadow: var(--neo-inset-sm);
+  color: var(--neo-error);
 }
 
 .xposter .copy-icon {
   width: 14px;
   height: 14px;
-}
-
-.xposter .edit-btn,
-.xposter .attach-image-btn,
-.xposter .delete-btn {
-  background: transparent;
-  border: 1px solid var(--xp-border);
-  padding: 6px 12px;
-  font-size: 0.8rem;
-}
-
-.xposter .attach-image-btn:hover {
-  border-color: var(--xp-accent);
-  color: var(--xp-accent);
-}
-
-.xposter .remove-image-btn {
-  background: transparent;
-  border: 1px solid var(--xp-border);
-  padding: 6px 12px;
-  font-size: 0.8rem;
-}
-
-.xposter .remove-image-btn:hover {
-  border-color: var(--xp-error);
-  color: var(--xp-error);
-}
-
-.xposter .delete-btn:hover {
-  border-color: var(--xp-error);
-  color: var(--xp-error);
 }
 
 .xposter .entry-edit {
@@ -608,13 +615,19 @@
 }
 
 .xposter .cancel-edit-btn {
-  background: transparent;
-  border: 1px solid var(--xp-border);
+  border: none;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+}
+
+.xposter .save-edit-btn {
+  background: var(--neo-accent);
+  color: white;
 }
 
 .xposter .empty-state {
   text-align: center;
-  color: var(--xp-text-muted);
+  color: var(--neo-text-muted);
   padding: 40px 20px;
 }
 
@@ -626,76 +639,55 @@
 
 .xposter .entries-count {
   font-size: 0.875rem;
-  color: var(--xp-text-muted);
+  color: var(--neo-text-muted);
   font-weight: 400;
 }
 
-.xposter .entries-count .queue-count {
-  margin-left: 8px;
-  font-size: 0.8rem;
-}
-
-.xposter .entries-count .queue-count span,
-.xposter .entries-count .queue-count .queue-filter-btn {
-  margin-left: 4px;
-}
-
-.xposter .queue-filter-btn {
-  background: none;
-  border: none;
-  padding: 2px 6px;
+/* Neumorphic filter buttons */
+.xposter .queue-filter-btn,
+.xposter .type-filter-btn {
+  padding: 6px 12px;
   margin: 0 2px;
-  font-size: inherit;
+  font-size: 0.8rem;
   font-family: inherit;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.15s, opacity 0.15s;
-}
-
-.xposter .queue-filter-btn:hover {
-  opacity: 0.9;
-  background-color: rgba(255, 255, 255, 0.08);
-}
-
-.xposter .queue-filter-btn.active {
-  background-color: rgba(255, 255, 255, 0.15);
   font-weight: 500;
+  cursor: pointer;
+  border: none;
+  border-radius: 10px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.xposter .queue-filter-btn:hover,
+.xposter .type-filter-btn:hover {
+  box-shadow: var(--neo-inset-sm);
+  transform: scale(0.98);
+}
+
+.xposter .queue-filter-btn.active,
+.xposter .type-filter-btn.active {
+  box-shadow: var(--neo-inset-sm);
+  font-weight: 600;
 }
 
 .xposter .q-8am { color: #1d9bf0; }
-.xposter .q-12pm { color: #eab308; }
+.xposter .q-12pm { color: #c9970a; }
 .xposter .q-4pm { color: #8b5cf6; }
 .xposter .q-8pm { color: #ec4899; }
-.xposter .q-unscheduled { color: var(--xp-text-muted); }
-.xposter .q-posted { color: var(--xp-success); }
+.xposter .q-unscheduled { color: var(--neo-text-muted); }
+.xposter .q-posted { color: var(--neo-success); }
 
 .xposter .entries-count .type-filter {
   margin-left: 4px;
 }
 
 .xposter .type-filter-btn {
-  background: none;
-  border: none;
-  padding: 2px 6px;
-  margin: 0 2px;
-  font-size: inherit;
-  font-family: inherit;
-  cursor: pointer;
-  border-radius: 4px;
-  color: var(--xp-text-muted);
-  transition: background-color 0.15s, opacity 0.15s;
-}
-
-.xposter .type-filter-btn:hover {
-  opacity: 0.9;
-  background-color: rgba(255, 255, 255, 0.08);
-  color: var(--xp-text);
+  color: var(--neo-text-muted);
 }
 
 .xposter .type-filter-btn.active {
-  background-color: rgba(255, 255, 255, 0.15);
-  font-weight: 500;
-  color: var(--xp-accent);
+  color: var(--neo-accent);
 }
 
 .xposter .btn-group {
@@ -704,21 +696,23 @@
 }
 
 .xposter .generate-btn {
-  background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+  background: var(--neo-bg);
+  color: #8b5cf6;
+  box-shadow: var(--neo-raised);
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.xposter .generate-btn:hover {
-  background: linear-gradient(135deg, #7c3aed 0%, #9333ea 100%);
+.xposter .generate-btn:hover:not(:disabled) {
+  box-shadow: var(--neo-inset-sm);
 }
 
 .xposter .generate-btn .spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  border-top-color: #8b5cf6;
   border-radius: 50%;
   animation: xposter-spin 0.8s linear infinite;
   display: none;
@@ -744,13 +738,14 @@
 .xposter .notes-section {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid var(--xp-border);
+  border-top: none;
+  box-shadow: 0 -1px 0 rgba(190, 190, 190, 0.3);
 }
 
 .xposter .notes-label {
   display: block;
   font-size: 0.8rem;
-  color: var(--xp-text-muted);
+  color: var(--neo-text-muted);
   margin-bottom: 8px;
 }
 
@@ -764,44 +759,54 @@
 .xposter .notes-select {
   flex: 1;
   min-width: 120px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 2px solid var(--xp-border);
-  background: var(--xp-bg);
-  color: var(--xp-text);
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: none;
+  background: var(--neo-bg);
+  color: var(--neo-text);
   font-size: 0.9rem;
+  box-shadow: var(--neo-inset-sm);
+  outline: none;
 }
 
 .xposter .notes-select:focus {
-  outline: none;
-  border-color: var(--xp-accent);
+  box-shadow: var(--neo-inset-sm), 0 0 0 2px rgba(29, 155, 240, 0.3);
 }
 
 .xposter .notes-count-label {
   font-size: 0.85rem;
-  color: #8b98a5;
+  color: var(--neo-text-muted);
   white-space: nowrap;
 }
 
 .xposter .posts-count-input {
   width: 3.5rem;
-  padding: 6px 8px;
-  border: 1px solid var(--xp-border);
-  border-radius: 6px;
-  background: var(--xp-bg);
-  color: #e7e9ea;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 10px;
+  background: var(--neo-bg);
+  color: var(--neo-text);
   font-size: 0.9rem;
   text-align: center;
+  box-shadow: var(--neo-inset-sm);
 }
 
 .xposter .generate-from-notes-btn {
   background: #0d9488;
+  color: white;
   flex-shrink: 0;
-  padding: 8px 16px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 100em;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: var(--neo-raised);
+  transition: box-shadow 0.2s, transform 0.2s;
 }
 
-.xposter .generate-from-notes-btn:hover {
-  background: #0f766e;
+.xposter .generate-from-notes-btn:hover:not(:disabled) {
+  box-shadow: var(--neo-inset-sm);
+  transform: scale(0.98);
 }
 
 .xposter .generate-from-notes-btn .spinner {
@@ -825,19 +830,19 @@
 
 .xposter .reset-pointer-btn {
   flex-shrink: 0;
-  padding: 6px 12px;
+  padding: 8px 14px;
   font-size: 0.85rem;
-  border: 1px solid var(--xp-border);
-  border-radius: 6px;
-  background: var(--xp-bg);
-  color: #8b98a5;
+  border: none;
+  border-radius: 10px;
+  background: var(--neo-bg);
+  color: var(--neo-text-muted);
   cursor: pointer;
+  box-shadow: var(--neo-raised);
+  transition: box-shadow 0.2s;
 }
 
 .xposter .reset-pointer-btn:hover:not(:disabled) {
-  background: var(--xp-panel-bg);
-  color: #e7e9ea;
-  border-color: var(--xp-accent);
+  box-shadow: var(--neo-inset-sm);
 }
 
 .xposter .reset-pointer-btn:disabled {
@@ -853,30 +858,29 @@
 }
 
 .xposter .rag-action-btn {
-  padding: 6px 14px;
-  border-radius: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
   font-size: 0.85rem;
   border: none;
   cursor: pointer;
   font-weight: 500;
+  box-shadow: var(--neo-raised);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.xposter .rag-action-btn:hover:not(:disabled) {
+  box-shadow: var(--neo-inset-sm);
+  transform: scale(0.98);
 }
 
 .xposter .copy-all-btn {
-  background: var(--xp-accent);
-  color: var(--xp-text);
-}
-
-.xposter .copy-all-btn:hover:not(:disabled) {
-  background: #1a8cd8;
+  background: var(--neo-accent);
+  color: white;
 }
 
 .xposter .delete-all-btn {
-  background: var(--xp-error);
-  color: var(--xp-text);
-}
-
-.xposter .delete-all-btn:hover:not(:disabled) {
-  background: #e01e2a;
+  background: var(--neo-error);
+  color: white;
 }
 
 .xposter .rag-results {
@@ -889,15 +893,16 @@
 }
 
 .xposter .rag-tweet-card {
-  background: var(--xp-bg);
-  border-radius: 8px;
-  padding: 10px 12px;
+  background: var(--neo-bg);
+  border-radius: 16px;
+  padding: 12px 16px;
   font-size: 0.875rem;
   line-height: 1.4;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: 8px;
+  box-shadow: var(--neo-raised);
 }
 
 .xposter .rag-tweet-card .text {
@@ -915,50 +920,53 @@
 
 .xposter .mini-copy-btn,
 .xposter .mini-save-btn {
-  padding: 4px 8px;
+  padding: 6px 10px;
   font-size: 0.75rem;
-  border-radius: 6px;
-  border: 1px solid var(--xp-border);
-  background: transparent;
-  color: var(--xp-text);
+  border-radius: 8px;
+  border: none;
+  background: var(--neo-bg);
+  color: var(--neo-text);
   cursor: pointer;
+  box-shadow: var(--neo-raised);
+  transition: box-shadow 0.2s;
 }
 
 .xposter .mini-copy-btn:hover {
-  background: var(--xp-border);
+  box-shadow: var(--neo-inset-sm);
 }
 
 .xposter .mini-save-btn {
-  background: var(--xp-accent);
-  border-color: var(--xp-accent);
+  background: var(--neo-accent);
+  color: white;
 }
 
 .xposter .rag-empty {
-  color: var(--xp-text-muted);
+  color: var(--neo-text-muted);
   font-size: 0.85rem;
   padding: 8px 0;
 }
 
 .xposter .notes-log-terminal {
   margin-top: 12px;
-  background: #0d1117;
-  border: 1px solid #30363d;
-  border-radius: 8px;
-  padding: 12px;
+  background: var(--neo-bg);
+  border: none;
+  border-radius: 16px;
+  padding: 16px;
   font-family: Consolas, Monaco, "Courier New", monospace;
   font-size: 0.75rem;
   line-height: 1.4;
-  color: #c9d1d9;
+  color: var(--neo-text);
   max-height: 220px;
   overflow-y: auto;
   white-space: pre-wrap;
   word-break: break-word;
+  box-shadow: var(--neo-inset-sm);
 }
 
-.xposter .notes-log-terminal .log-line.time { color: #8b949e; }
-.xposter .notes-log-terminal .log-line.msg { color: #58a6ff; }
-.xposter .notes-log-terminal .log-line.err { color: #f85149; }
-.xposter .notes-log-terminal .log-line.ok { color: #3fb950; }
+.xposter .notes-log-terminal .log-line.time { color: var(--neo-text-muted); }
+.xposter .notes-log-terminal .log-line.msg { color: var(--neo-accent); }
+.xposter .notes-log-terminal .log-line.err { color: var(--neo-error); }
+.xposter .notes-log-terminal .log-line.ok { color: var(--neo-success); }
 
 .xposter .notes-log-header {
   display: flex;
@@ -966,21 +974,22 @@
   align-items: center;
   margin-bottom: 6px;
   font-size: 0.7rem;
-  color: #8b949e;
+  color: var(--neo-text-muted);
 }
 
 .xposter .notes-log-clear {
-  background: transparent;
-  border: 1px solid #30363d;
-  color: #8b949e;
-  padding: 2px 8px;
-  border-radius: 4px;
+  background: var(--neo-bg);
+  border: none;
+  color: var(--neo-text-muted);
+  padding: 6px 12px;
+  border-radius: 8px;
   font-size: 0.7rem;
   cursor: pointer;
+  box-shadow: var(--neo-raised);
 }
 
 .xposter .notes-log-clear:hover {
-  color: #c9d1d9;
+  color: var(--neo-text);
 }
 
 .xposter .is-thread-row,
@@ -991,6 +1000,50 @@
   margin-top: 12px;
 }
 
+.xposter .is-thread-toggle,
+.xposter .is-poll-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--neo-text);
+}
+
+.xposter .is-thread-toggle input,
+.xposter .is-poll-toggle input {
+  display: none;
+}
+
+.xposter .is-thread-toggle::before,
+.xposter .is-poll-toggle::before {
+  content: "";
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+  transition: box-shadow 0.2s;
+}
+
+.xposter .is-thread-toggle:has(input:checked)::before,
+.xposter .is-poll-toggle:has(input:checked)::before {
+  background: var(--neo-accent);
+  box-shadow: var(--neo-inset-sm);
+  color: white;
+  content: "✓";
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 24px;
+  text-align: center;
+}
+
+.xposter .is-thread-toggle::before,
+.xposter .is-poll-toggle::before {
+  flex-shrink: 0;
+  content: "";
+}
+
 .xposter .thread-length-row {
   display: flex;
   align-items: center;
@@ -999,31 +1052,34 @@
 }
 
 .xposter .thread-length-select {
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 2px solid var(--xp-border);
-  background: var(--xp-bg);
-  color: var(--xp-text);
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: none;
+  background: var(--neo-bg);
+  color: var(--neo-text);
   font-size: 0.9rem;
+  box-shadow: var(--neo-inset-sm);
 }
 
 .xposter .poll-badge {
   display: inline-block;
   font-size: 0.7rem;
   font-weight: 600;
-  color: var(--xp-accent);
-  background: rgba(29, 155, 240, 0.15);
-  padding: 2px 8px;
-  border-radius: 6px;
+  color: var(--neo-accent);
+  background: var(--neo-bg);
+  padding: 4px 10px;
+  border-radius: 100em;
   margin-left: 6px;
+  box-shadow: var(--neo-inset-sm);
 }
 
 .xposter .entry-poll-options {
   margin-top: 8px;
   padding: 8px 0;
-  border-top: 1px solid var(--xp-border);
+  border-top: none;
+  box-shadow: 0 -1px 0 rgba(190, 190, 190, 0.3);
   font-size: 0.85rem;
-  color: #8b98a5;
+  color: var(--neo-text-muted);
 }
 
 .xposter .entry-poll-options ul {
@@ -1031,35 +1087,40 @@
   padding: 0;
 }
 
+/* Neumorphic thread container */
 .xposter .thread-container {
-  background: #1a2d3a;
-  border: 1px solid var(--xp-border);
-  border-radius: 12px;
+  background: var(--neo-bg);
+  border: none;
+  border-radius: 20px;
   margin-bottom: 12px;
   overflow: hidden;
+  box-shadow: var(--neo-raised);
 }
 
 .xposter .thread-header {
-  padding: 8px 16px;
-  background: #22303c;
+  padding: 12px 20px;
+  background: var(--neo-bg);
   font-size: 0.8rem;
-  color: #8b98a5;
+  color: var(--neo-text-muted);
   font-weight: 600;
+  box-shadow: inset 0 2px 4px rgba(190, 190, 190, 0.3);
 }
 
 .xposter .thread-posts .entry-card {
   padding: 12px 16px;
+  box-shadow: none;
+  border-radius: 0;
 }
 
 .xposter .thread-posts .entry-card:not(:first-child) {
   margin-left: 16px;
-  border-left: 3px solid var(--xp-border);
+  border-left: 3px solid rgba(190, 190, 190, 0.5);
   padding-left: 13px;
 }
 
 .xposter .thread-container .entry-card {
   border-radius: 0;
-  border-bottom: 1px solid var(--xp-border);
+  border-bottom: 1px solid rgba(190, 190, 190, 0.3);
 }
 
 .xposter .thread-container .entry-card:last-child {
@@ -1072,11 +1133,12 @@
 
 .xposter .thread-post-badge {
   display: inline-block;
-  background: var(--xp-accent);
-  color: var(--xp-text);
+  background: var(--neo-bg);
+  color: var(--neo-text);
   font-size: 0.7rem;
   font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 6px;
+  padding: 4px 10px;
+  border-radius: 100em;
   margin-bottom: 8px;
+  box-shadow: var(--neo-inset-sm);
 }
