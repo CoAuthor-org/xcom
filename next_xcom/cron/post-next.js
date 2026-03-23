@@ -147,8 +147,10 @@ async function main() {
         try {
           const response = await fetch(entry.image_url);
           if (!response.ok) throw new Error(`Image fetch ${response.status}`);
+          const contentType = response.headers.get('content-type') || 'image/jpeg';
+          const mimeType = contentType.split(';')[0].trim() || 'image/jpeg';
           const buffer = Buffer.from(await response.arrayBuffer());
-          const mediaId = await rw.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' });
+          const mediaId = await rw.v1.uploadMedia(buffer, { mimeType });
           mediaIds = [mediaId];
         } catch (e) {
           console.warn('Media upload failed for entry', entry.id, ':', e.message);
@@ -223,8 +225,10 @@ async function main() {
           try {
             const response = await fetch(entry.image_url);
             if (!response.ok) throw new Error(`Image fetch ${response.status}`);
+            const contentType = response.headers.get('content-type') || 'image/jpeg';
+            const mimeType = contentType.split(';')[0].trim() || 'image/jpeg';
             const buffer = Buffer.from(await response.arrayBuffer());
-            mediaId = await rw.v1.uploadMedia(buffer, { mimeType: 'image/jpeg' });
+            mediaId = await rw.v1.uploadMedia(buffer, { mimeType });
           } catch (e) {
             console.warn('Media upload failed, posting text only:', e.message);
           }
