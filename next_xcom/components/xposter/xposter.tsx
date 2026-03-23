@@ -495,6 +495,63 @@ export function XPoster() {
     (e) => queueMatches(e) && typeMatches(e) && postedMatches(e)
   );
 
+  /** Compute which unit (thread or entry) will post next per queue. Matches cron/post-next.js logic. */
+  const nextForQueue = React.useMemo(() => {
+    const result: Record<string, string | null> = {
+      "8am": null,
+      "12pm": null,
+      "4pm": null,
+      "8pm": null,
+    };
+    const unposted = entries.filter((e) => !e.postedAt);
+    const byThread: Record<string, Entry[]> = {};
+    const standalone: Entry[] = [];
+    for (const e of unposted) {
+      const tid = e.threadId ?? null;
+      if (tid) {
+        if (!byThread[tid]) byThread[tid] = [];
+        byThread[tid].push(e);
+      } else {
+        standalone.push(e);
+      }
+    }
+    for (const tid of Object.keys(byThread)) {
+      byThread[tid].sort((a, b) => (a.threadIndex ?? 0) - (b.threadIndex ?? 0));
+    }
+    const queues = ["8am", "12pm", "4pm", "8pm"] as const;
+    for (const queue of queues) {
+      const threadIds = Object.keys(byThread).filter(
+        (tid) => (byThread[tid][0]?.queue ?? "") === queue
+      );
+      let earliestThreadId: string | null = null;
+      let earliestCreated = "";
+      for (const tid of threadIds) {
+        const first = byThread[tid][0];
+        const created = first?.timestamp ?? "";
+        if (!earliestCreated || created < earliestCreated) {
+          earliestCreated = created;
+          earliestThreadId = tid;
+        }
+      }
+      if (earliestThreadId) {
+        result[queue] = earliestThreadId;
+        continue;
+      }
+      const single = standalone
+        .filter((e) => (e.queue ?? "") === queue)
+        .sort((a, b) => (a.timestamp ?? "").localeCompare(b.timestamp ?? ""))[0];
+      if (single) result[queue] = single.id;
+    }
+    return result;
+  }, [entries]);
+
+  const getNextQueueForUnit = (unitId: string): string | null => {
+    for (const q of ["8am", "12pm", "4pm", "8pm"] as const) {
+      if (nextForQueue[q] === unitId) return q;
+    }
+    return null;
+  };
+
   const toggleQueueFilter = (queue: string) => {
     setQueueFilter((prev) => {
       const next = new Set(prev);
@@ -551,7 +608,16 @@ export function XPoster() {
   for (const e of standalone) {
     groupOrder.push({ type: "standalone", id: e.id, entries: [e] });
   }
+  const singleQueueFilter =
+    queueFilter.size === 1 &&
+    ["8am", "12pm", "4pm", "8pm"].find((q) => queueFilter.has(q));
   groupOrder.sort((a, b) => {
+    if (singleQueueFilter) {
+      const aNext = nextForQueue[singleQueueFilter] === a.id;
+      const bNext = nextForQueue[singleQueueFilter] === b.id;
+      if (aNext && !bNext) return -1;
+      if (!aNext && bNext) return 1;
+    }
     const aTime = a.entries[0]?.timestamp ?? "";
     const bTime = b.entries[0]?.timestamp ?? "";
     return bTime.localeCompare(aTime);
@@ -733,6 +799,10 @@ export function XPoster() {
         ? isUnitSelected(entry.threadId)
         : isUnitSelected(entry.id);
     const effectiveCardClass = `${cardClass}${selected ? " selected" : ""}`;
+    const nextQueue =
+      !threadPos || (threadPos.total === 1 && entry.threadId)
+        ? getNextQueueForUnit(unitId)
+        : null;
 
     return (
       <EntryCard
@@ -746,6 +816,7 @@ export function XPoster() {
         imageHtml={imageHtml}
         postedBadge={postedBadge}
         cardClass={effectiveCardClass}
+        nextQueue={nextQueue}
         selectable={selectable}
         selected={selected}
         onToggleSelect={() => toggleSelectUnit(unitId)}
@@ -1144,6 +1215,7 @@ export function XPoster() {
                 if (group.type === "thread" && group.entries.length > 1) {
                   const q = group.entries[0]?.queue || "";
                   const threadSelected = selectedUnits.has(group.id);
+                  const nextQueueForThread = getNextQueueForUnit(group.id);
                   return (
                     <div
                       key={group.id}
@@ -1152,6 +1224,14 @@ export function XPoster() {
                       <div className="thread-header">
                         Thread ({group.entries.length} posts)
                         {q ? ` · ${q}` : ""}
+                        {nextQueueForThread && (
+                          <span
+                            className={`entry-next-badge q-${nextQueueForThread}`}
+                            title={`This thread will post next at ${nextQueueForThread}`}
+                          >
+                            Next for {nextQueueForThread}
+                          </span>
+                        )}
                       </div>
                       <div className="thread-posts">
                         {group.entries.map((entry, i) =>
@@ -1166,7 +1246,14 @@ export function XPoster() {
                 }
                 return (
                   <React.Fragment key={group.id}>
-                    {group.entries.map((e) => renderEntryCard(e))}
+                    {group.entries.map((e) =>
+                      renderEntryCard(
+                        e,
+                        group.type === "thread" && group.entries.length === 1
+                          ? { index: 1, total: 1 }
+                          : undefined
+                      )
+                    )}
                   </React.Fragment>
                 );
               })
@@ -1190,6 +1277,7 @@ function EntryCard({
   queue,
   postedBadge,
   cardClass,
+  nextQueue,
   onCopy,
   onEdit,
   onSetQueue,
@@ -1210,6 +1298,7 @@ function EntryCard({
   queue: string;
   postedBadge: string;
   cardClass: string;
+  nextQueue?: string | null;
   selectable?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
@@ -1286,6 +1375,14 @@ function EntryCard({
           </button>
         )}
         <div className="entry-view-body">
+        {nextQueue && (
+          <span
+            className={`entry-next-badge q-${nextQueue}`}
+            title={`This post will go next at ${nextQueue}`}
+          >
+            Next for {nextQueue}
+          </span>
+        )}
         {threadBadge && <span dangerouslySetInnerHTML={{ __html: threadBadge }} />}
         {topicLabel && <span dangerouslySetInnerHTML={{ __html: topicLabel }} />}
         {pollBadge && <span dangerouslySetInnerHTML={{ __html: pollBadge }} />}

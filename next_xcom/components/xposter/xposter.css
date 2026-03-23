@@ -588,6 +588,27 @@
   box-shadow: var(--neo-inset-sm);
 }
 
+.xposter .entry-next-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--neo-bg);
+  padding: 4px 10px;
+  border-radius: 100em;
+  margin-bottom: 4px;
+  box-shadow: var(--neo-inset-sm);
+}
+
+.xposter .entry-next-badge.q-8am { color: #1d9bf0; }
+.xposter .entry-next-badge.q-12pm { color: #c9970a; }
+.xposter .entry-next-badge.q-4pm { color: #8b5cf6; }
+.xposter .entry-next-badge.q-8pm { color: #ec4899; }
+
+.xposter .thread-header .entry-next-badge {
+  margin-left: 8px;
+  margin-bottom: 0;
+}
+
 .xposter .entry-card.entry-card--posted {
   border-left: 4px solid var(--neo-success);
 }
