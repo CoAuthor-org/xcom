@@ -6,6 +6,7 @@ import { AppSidebar, type NavItemId } from "@/components/app-sidebar";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { XPoster } from "@/components/xposter/xposter";
 import { BlogPoster } from "@/components/blog-poster/blog-poster";
+import { XEngager } from "@/components/x-engager/x-engager";
 
 export default function Home() {
   const [activeId, setActiveId] = React.useState<NavItemId>("xposter");
@@ -20,6 +21,7 @@ export default function Home() {
         <div className="flex-1 overflow-auto bg-[#e0e0e0]">
           {activeId === "xposter" && <XPoster />}
           {activeId === "blogposter" && <BlogPoster />}
+          {activeId === "xengager" && <XEngager />}
         </div>
       </SidebarInset>
     </SidebarProvider>

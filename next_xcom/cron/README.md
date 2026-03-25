@@ -58,3 +58,24 @@ node cron/post-next.js
 - **Mark as posted, don’t delete**: Keeps history in Supabase and lets you show “posted at” in the UI or re-use content later.
 
 Together with notes → tweets generation and the main app, this gives you a single pipeline: raw notes → generated tweets in Supabase → automatic posting on a fixed schedule.
+
+---
+
+## X Engager (reply discovery) — Vercel Cron
+
+The **X Engager** UI uses separate tables (`search_queries`, `pending_replies`). Scheduled **discovery** (search X + Grok drafts) can run on **Vercel** via [`vercel.json`](../vercel.json):
+
+- **08:00 IST** → cron hits `GET /api/discover-posts?batch=morning` at **02:30 UTC**
+- **18:00 IST** → `GET /api/discover-posts?batch=evening` at **12:30 UTC**
+
+Set in the Vercel project:
+
+| Variable | Description |
+|----------|-------------|
+| `CRON_SECRET` | Random secret; Vercel sends `Authorization: Bearer <CRON_SECRET>` to cron invocations |
+| `XAI_API_KEY` or `GROK_API_KEY` | xAI Grok API key for reply generation |
+| `X_BEARER_TOKEN` *or* same OAuth vars as above | X API v2 **recent search** (bearer **or** user-context OAuth 1.0a) |
+| `X_OWN_USERNAME` | Optional: your handle without `@`; appended as `-from:user` to exclude your posts |
+| `X_ENGAGER_BRAND_NAME`, `X_ENGAGER_TONE` | Optional Grok persona |
+
+Apply migration [`migrations/008_reply_automation.sql`](../migrations/008_reply_automation.sql) in Supabase. Discovery **does not** post tweets; it only inserts rows for you to copy from the app.

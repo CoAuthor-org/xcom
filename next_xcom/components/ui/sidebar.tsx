@@ -120,6 +120,9 @@ export function Sidebar({
             className="fixed inset-y-0 left-0 z-50 w-[var(--sidebar-width)] border-r border-[#bebebe] bg-[#e0e0e0] transition-transform md:hidden data-[state=open]:translate-x-0 data-[state=closed]:-translate-x-full"
             onEscapeKeyDown={() => setOpen(false)}
           >
+            <DialogPrimitive.Title className="sr-only">
+              Navigation menu
+            </DialogPrimitive.Title>
             <div className="flex h-full flex-col overflow-hidden">{children}</div>
           </DialogPrimitive.Content>
         </DialogPrimitive.Portal>

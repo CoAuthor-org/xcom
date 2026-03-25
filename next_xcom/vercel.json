@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/discover-posts?batch=morning",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/discover-posts?batch=evening",
+      "schedule": "30 12 * * *"
+    }
+  ]
+}
