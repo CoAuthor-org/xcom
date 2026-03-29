@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   requireSupabaseStorage,
   formatSupabaseError,
+  isPostgresUndefinedColumnError,
 } from "@/lib/entries";
 import { supabase } from "@/lib/supabase";
 
@@ -22,6 +23,7 @@ export async function PATCH(
     name?: string;
     query_string?: string;
     is_active?: boolean;
+    query_options?: unknown | null;
   };
   try {
     body = await request.json();
@@ -35,18 +37,43 @@ export async function PATCH(
     patch.query_string = body.query_string.trim();
   }
   if (typeof body.is_active === "boolean") patch.is_active = body.is_active;
+  if (body.query_options !== undefined) {
+    patch.query_options = body.query_options;
+  }
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "No valid fields" }, { status: 400 });
   }
 
   try {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("search_queries")
       .update(patch)
       .eq("id", id)
       .select()
       .maybeSingle();
+    if (
+      error &&
+      "query_options" in patch &&
+      isPostgresUndefinedColumnError(error, "query_options")
+    ) {
+      const { query_options: _q, ...rest } = patch;
+      if (Object.keys(rest).length === 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Cannot persist query_options until migration 010_search_queries_options.sql is applied in Supabase.",
+          },
+          { status: 503 }
+        );
+      }
+      ({ data, error } = await supabase
+        .from("search_queries")
+        .update(rest)
+        .eq("id", id)
+        .select()
+        .maybeSingle());
+    }
     if (error) throw error;
     if (!data) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });

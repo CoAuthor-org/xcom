@@ -7,6 +7,7 @@ import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { XPoster } from "@/components/xposter/xposter";
 import { BlogPoster } from "@/components/blog-poster/blog-poster";
 import { XEngager } from "@/components/x-engager/x-engager";
+import { ScouterDashboard } from "@/components/scouter/scouter-dashboard";
 
 export default function Home() {
   const [activeId, setActiveId] = React.useState<NavItemId>("xposter");
@@ -22,6 +23,7 @@ export default function Home() {
           {activeId === "xposter" && <XPoster />}
           {activeId === "blogposter" && <BlogPoster />}
           {activeId === "xengager" && <XEngager />}
+          {activeId === "scouter" && <ScouterDashboard />}
         </div>
       </SidebarInset>
     </SidebarProvider>

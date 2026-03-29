@@ -68,3 +68,39 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: errMsg }, { status: 500 });
   }
 }
+
+/** Bulk-delete rows with status `done` (e.g. after replies were posted on X). */
+export async function DELETE(request: Request) {
+  const err = requireSupabaseStorage();
+  if (err) {
+    return NextResponse.json({ error: err.error }, { status: 503 });
+  }
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  }
+
+  const url = new URL(request.url);
+  if (url.searchParams.get("bulk") !== "done") {
+    return NextResponse.json(
+      { error: "Use DELETE with query bulk=done" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("pending_replies")
+      .delete()
+      .eq("status", "done")
+      .select("id");
+    if (error) throw error;
+    const deleted = data?.length ?? 0;
+    return NextResponse.json({ ok: true, deleted });
+  } catch (e) {
+    const errMsg = formatSupabaseError(
+      e as Parameters<typeof formatSupabaseError>[0]
+    );
+    console.error("DELETE /api/pending-replies:", errMsg);
+    return NextResponse.json({ error: errMsg }, { status: 500 });
+  }
+}

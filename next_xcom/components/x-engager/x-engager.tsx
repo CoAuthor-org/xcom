@@ -9,8 +9,16 @@ import {
   Trash2,
   CircleCheck,
   Bookmark,
+  Sparkles,
 } from "lucide-react";
 import "./x-engager.css";
+import { QueryBuilderPanel } from "./query-builder-panel";
+import {
+  buildQueryStringFromOptions,
+  defaultQueryOptions,
+  parseQueryOptions,
+  type QueryOptionsV1,
+} from "@/lib/x-query-assembler";
 
 const SERVER_UNREACHABLE_MSG =
   'Server not reachable. Run "npm start" and open http://localhost:3000';
@@ -40,6 +48,16 @@ interface SearchQueryRow {
   query_string: string;
   is_active: boolean;
   created_at: string;
+  query_options?: unknown;
+}
+
+interface DiscoverApiResult {
+  inserted?: number;
+  candidateCount?: number;
+  skippedDueToCap?: boolean;
+  errors?: string[];
+  batch?: string;
+  dailyCountBefore?: number;
 }
 
 function previewText(text: string, max = 120): string {
@@ -52,11 +70,15 @@ export function XEngager() {
   const [tab, setTab] = React.useState<"replies" | "queries">("replies");
   const [replies, setReplies] = React.useState<PendingReply[]>([]);
   const [meta, setMeta] = React.useState<RepliesMeta | null>(null);
-  const [statusFilter, setStatusFilter] = React.useState<string>("");
+  const [statusFilter, setStatusFilter] = React.useState<string>("pending");
   const [todayOnly, setTodayOnly] = React.useState(false);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [discoverLoading, setDiscoverLoading] = React.useState(false);
+  const [clearingDone, setClearingDone] = React.useState(false);
+  const [discoverSummary, setDiscoverSummary] = React.useState<string | null>(
+    null
+  );
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
 
   const [queries, setQueries] = React.useState<SearchQueryRow[]>([]);
@@ -66,6 +88,19 @@ export function XEngager() {
   const [editingQuery, setEditingQuery] = React.useState<SearchQueryRow | null>(
     null
   );
+  const [queryOptions, setQueryOptions] = React.useState<QueryOptionsV1>(() =>
+    defaultQueryOptions()
+  );
+  const [builderActive, setBuilderActive] = React.useState(false);
+
+  const [generateModalOpen, setGenerateModalOpen] = React.useState(false);
+  const [scoutTab, setScoutTab] = React.useState<"topic" | "suggest">("topic");
+  const [scoutTopicInput, setScoutTopicInput] = React.useState("");
+  const [scoutBusy, setScoutBusy] = React.useState(false);
+  const [scoutError, setScoutError] = React.useState<string | null>(null);
+  const [scoutSuggestions, setScoutSuggestions] = React.useState<
+    { label: string; rationale: string }[] | null
+  >(null);
 
   const loadReplies = React.useCallback(async () => {
     setError(null);
@@ -129,24 +164,191 @@ export function XEngager() {
     if (tab === "queries") loadQueries();
   }, [tab, loadQueries]);
 
+  React.useEffect(() => {
+    if (builderActive) {
+      try {
+        setQString(buildQueryStringFromOptions(queryOptions));
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [queryOptions, builderActive]);
+
+  const openScoutModal = () => {
+    setScoutError(null);
+    setScoutSuggestions(null);
+    setGenerateModalOpen(true);
+  };
+
+  const runScoutFromTopic = async () => {
+    const topic = scoutTopicInput.trim();
+    if (!topic) {
+      setScoutError("Enter a topic or seed phrase.");
+      return;
+    }
+    setScoutBusy(true);
+    setScoutError(null);
+    try {
+      const res = await fetch("/api/queries/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "from_topic", topic }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        name?: string;
+        query_string?: string;
+        query_options?: QueryOptionsV1;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error || res.statusText);
+      }
+      if (data.name) setQName(data.name);
+      if (data.query_options) {
+        setQueryOptions(data.query_options);
+        setBuilderActive(true);
+        setQString(buildQueryStringFromOptions(data.query_options));
+      } else if (data.query_string) {
+        setQString(data.query_string);
+        setBuilderActive(false);
+      }
+      setGenerateModalOpen(false);
+      setScoutTopicInput("");
+    } catch (e) {
+      setScoutError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setScoutBusy(false);
+    }
+  };
+
+  const runScoutSuggest = async () => {
+    setScoutBusy(true);
+    setScoutError(null);
+    try {
+      const res = await fetch("/api/queries/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "suggest_topics" }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        suggestions?: { label: string; rationale: string }[];
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error || res.statusText);
+      }
+      setScoutSuggestions(data.suggestions ?? []);
+    } catch (e) {
+      setScoutError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setScoutBusy(false);
+    }
+  };
+
+  const applyScoutSuggestion = async (label: string) => {
+    setScoutBusy(true);
+    setScoutError(null);
+    try {
+      const res = await fetch("/api/queries/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "from_topic", topic: label }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        name?: string;
+        query_string?: string;
+        query_options?: QueryOptionsV1;
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(data.error || res.statusText);
+      }
+      if (data.name) setQName(data.name);
+      if (data.query_options) {
+        setQueryOptions(data.query_options);
+        setBuilderActive(true);
+        setQString(buildQueryStringFromOptions(data.query_options));
+      } else if (data.query_string) {
+        setQString(data.query_string);
+        setBuilderActive(false);
+      }
+      setGenerateModalOpen(false);
+      setScoutSuggestions(null);
+    } catch (e) {
+      setScoutError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setScoutBusy(false);
+    }
+  };
+
   const runDiscover = async () => {
     setDiscoverLoading(true);
     setError(null);
+    setDiscoverSummary(null);
+    const started = performance.now();
+    console.info("[X Engager] Discover started (batch=manual)…");
     try {
       const res = await fetch("/api/discover-posts?batch=manual", {
         method: "POST",
       });
-      const data = await res.json().catch(() => ({}));
+      const data = (await res.json().catch(() => ({}))) as
+        | DiscoverApiResult
+        | { error?: string };
+      const ms = Math.round(performance.now() - started);
       if (!res.ok) {
+        console.error("[X Engager] Discover failed", res.status, data);
         throw new Error(
           (data as { error?: string }).error || res.statusText
         );
       }
+      const d = data as DiscoverApiResult;
+      console.info("[X Engager] Discover response:", {
+        ...d,
+        durationMs: ms,
+        httpStatus: res.status,
+      });
+      const lines: string[] = [];
+      lines.push(
+        `${d.inserted ?? 0} new draft(s) saved (HTTP ${res.status}, ${ms}ms).`
+      );
+      lines.push(
+        `Batch: ${d.batch ?? "manual"} · Today’s count before run: ${d.dailyCountBefore ?? "—"}`
+      );
+      if (d.candidateCount != null) {
+        lines.push(
+          `X recent search returned ${d.candidateCount} tweet(s) (after dedupe).`
+        );
+      }
+      if (d.skippedDueToCap) {
+        lines.push(
+          "Daily cap was already reached — nothing could be added this run."
+        );
+      }
+      if ((d.errors?.length ?? 0) > 0) {
+        lines.push(
+          `Issues (${d.errors!.length}):`,
+          ...d.errors!.map((e, i) => `  ${i + 1}. ${e}`)
+        );
+      } else if ((d.inserted ?? 0) === 0 && !d.skippedDueToCap) {
+        if ((d.candidateCount ?? 0) === 0) {
+          lines.push(
+            "Nothing to draft: X returned no tweets for your active query/queries. Try a broader query, check Advanced Search syntax for the API, or note that Recent Search only covers the last ~7 days."
+          );
+        } else {
+          lines.push(
+            "No new rows saved: every candidate may already exist in pending_replies (duplicate tweet), or Grok/insert failed — see Issues if listed above."
+          );
+        }
+      }
+      setDiscoverSummary(lines.join("\n"));
       await loadReplies();
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("[X Engager] Discover error:", e);
+      setError(msg);
     } finally {
       setDiscoverLoading(false);
+      console.info("[X Engager] Discover finished.");
     }
   };
 
@@ -217,17 +419,59 @@ export function XEngager() {
     }
   };
 
+  const clearDoneReplies = async () => {
+    if (
+      !confirm(
+        "Delete every reply marked Done from the database? This cannot be undone."
+      )
+    ) {
+      return;
+    }
+    setClearingDone(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/pending-replies?bulk=done", {
+        method: "DELETE",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        deleted?: number;
+      };
+      if (!res.ok) {
+        throw new Error(j.error || "Delete failed");
+      }
+      await loadReplies();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Clear failed");
+    } finally {
+      setClearingDone(false);
+    }
+  };
+
   const submitQuery = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!qName.trim() || !qString.trim()) return;
+    const qs = builderActive
+      ? buildQueryStringFromOptions(queryOptions)
+      : qString.trim();
+    if (!qName.trim() || !qs) return;
+    if (qs.length > 512) {
+      alert("Query string exceeds 512 characters. Tighten filters or words.");
+      return;
+    }
+    const payload: Record<string, unknown> = {
+      name: qName.trim(),
+      query_string: qs,
+    };
+    if (builderActive) {
+      payload.query_options = queryOptions;
+    } else {
+      payload.query_options = null;
+    }
     if (editingQuery) {
       const res = await fetch(`/api/queries/${editingQuery.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: qName.trim(),
-          query_string: qString.trim(),
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -239,10 +483,7 @@ export function XEngager() {
       const res = await fetch("/api/queries", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: qName.trim(),
-          query_string: qString.trim(),
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
@@ -252,6 +493,8 @@ export function XEngager() {
     }
     setQName("");
     setQString("");
+    setQueryOptions(defaultQueryOptions());
+    setBuilderActive(false);
     loadQueries();
   };
 
@@ -331,6 +574,12 @@ export function XEngager() {
         </button>
       </div>
 
+      {discoverSummary != null && discoverSummary !== "" && (
+        <div className="x-engager-discover-summary" role="status">
+          {discoverSummary}
+        </div>
+      )}
+
       {error && (
         <p className="x-engager-meta err" style={{ marginBottom: 12 }}>
           {error}
@@ -393,6 +642,14 @@ export function XEngager() {
             >
               Refresh
             </button>
+            <button
+              type="button"
+              className="xe-btn danger"
+              disabled={clearingDone}
+              onClick={() => clearDoneReplies()}
+            >
+              {clearingDone ? "Clearing…" : "Clear replied (done)"}
+            </button>
           </div>
 
           {loading ? (
@@ -434,19 +691,82 @@ export function XEngager() {
                 required
               />
             </div>
-            <div>
-              <label htmlFor="qe-q">Query string</label>
-              <textarea
-                id="qe-q"
-                value={qString}
-                onChange={(e) => setQString(e.target.value)}
-                placeholder="(AI OR ML) min_faves:10 -is:retweet lang:en"
-                required
-              />
+            <div className="xe-query-mode-row">
+              <label className="xe-query-mode-label">Query</label>
+              <label className="xe-qb-toggle xe-query-mode-toggle">
+                <input
+                  type="checkbox"
+                  checked={builderActive}
+                  onChange={(e) => {
+                    const on = e.target.checked;
+                    if (!on) {
+                      setBuilderActive(false);
+                      return;
+                    }
+                    if (!builderActive) {
+                      let built = "";
+                      try {
+                        built = buildQueryStringFromOptions(queryOptions).trim();
+                      } catch {
+                        built = "";
+                      }
+                      const raw = qString.trim();
+                      if (raw && raw !== built) {
+                        const ok = window.confirm(
+                          "The raw query no longer matches the structured fields. Switching to the builder will reset fields to defaults and rebuild the query. Copy the raw text first if you need it."
+                        );
+                        if (!ok) return;
+                        setQueryOptions(defaultQueryOptions());
+                      }
+                      setBuilderActive(true);
+                    }
+                  }}
+                />
+                Structured query builder (X API v2 operators)
+              </label>
+              <p className="xe-query-mode-hint">
+                {builderActive
+                  ? "Edit fields; the live preview is what discovery runs. Max 512 characters."
+                  : "Raw Advanced Search–style string sent to Recent Search. Use the builder for niche anchors and filters, or Generate query from a topic."}
+              </p>
             </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {builderActive ? (
+              <QueryBuilderPanel
+                idPrefix="qe"
+                value={queryOptions}
+                onChange={setQueryOptions}
+                showRecommended
+              />
+            ) : (
+              <div>
+                <label htmlFor="qe-q">Query string</label>
+                <textarea
+                  id="qe-q"
+                  value={qString}
+                  onChange={(e) => setQString(e.target.value)}
+                  placeholder="(AI OR ML) min_faves:10 -is:retweet lang:en"
+                  rows={4}
+                />
+              </div>
+            )}
+            <div
+              style={{
+                display: "flex",
+                gap: 8,
+                flexWrap: "wrap",
+                alignItems: "center",
+              }}
+            >
               <button type="submit" className="xe-btn primary">
                 {editingQuery ? "Save query" : "Add query"}
+              </button>
+              <button
+                type="button"
+                className="xe-btn"
+                onClick={openScoutModal}
+              >
+                <Sparkles size={16} aria-hidden />
+                Generate query
               </button>
               {editingQuery && (
                 <button
@@ -456,6 +776,8 @@ export function XEngager() {
                     setEditingQuery(null);
                     setQName("");
                     setQString("");
+                    setQueryOptions(defaultQueryOptions());
+                    setBuilderActive(false);
                   }}
                 >
                   Cancel edit
@@ -463,6 +785,13 @@ export function XEngager() {
               )}
             </div>
           </form>
+
+          <p className="x-engager-meta" style={{ marginTop: 12, maxWidth: 640 }}>
+            <strong>Scout:</strong> edit{" "}
+            <code style={{ fontSize: "0.85em" }}>prompts/scout-rotation-topics.md</code>{" "}
+            for upcoming-weeks focus; suggestions use that file plus recent text saved in
+            this app.
+          </p>
 
           {qLoading ? (
             <p className="x-engager-empty">Loading queries…</p>
@@ -503,7 +832,20 @@ export function XEngager() {
                           onClick={() => {
                             setEditingQuery(row);
                             setQName(row.name);
-                            setQString(row.query_string);
+                            const parsed = parseQueryOptions(row.query_options);
+                            if (parsed) {
+                              setQueryOptions(parsed);
+                              setBuilderActive(true);
+                              try {
+                                setQString(buildQueryStringFromOptions(parsed));
+                              } catch {
+                                setQString(row.query_string);
+                              }
+                            } else {
+                              setQString(row.query_string);
+                              setQueryOptions(defaultQueryOptions());
+                              setBuilderActive(false);
+                            }
                             window.scrollTo({ top: 0, behavior: "smooth" });
                           }}
                         >
@@ -525,6 +867,127 @@ export function XEngager() {
           )}
         </>
       )}
+
+      {generateModalOpen && (
+        <div
+          className="x-engager-modal-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setGenerateModalOpen(false);
+          }}
+        >
+          <div
+            className="x-engager-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="scout-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="x-engager-modal-head">
+              <h2 id="scout-modal-title" className="x-engager-modal-title">
+                Generate search query
+              </h2>
+              <button
+                type="button"
+                className="xe-btn"
+                onClick={() => setGenerateModalOpen(false)}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="x-engager-modal-tabs">
+              <button
+                type="button"
+                className={`x-engager-modal-tab ${scoutTab === "topic" ? "active" : ""}`}
+                onClick={() => {
+                  setScoutTab("topic");
+                  setScoutError(null);
+                }}
+              >
+                From topic
+              </button>
+              <button
+                type="button"
+                className={`x-engager-modal-tab ${scoutTab === "suggest" ? "active" : ""}`}
+                onClick={() => {
+                  setScoutTab("suggest");
+                  setScoutError(null);
+                }}
+              >
+                Suggest topics
+              </button>
+            </div>
+
+            {scoutTab === "topic" && (
+              <div className="x-engager-modal-body">
+                <label htmlFor="scout-topic">Topic or seed</label>
+                <textarea
+                  id="scout-topic"
+                  className="x-engager-textarea"
+                  value={scoutTopicInput}
+                  onChange={(e) => setScoutTopicInput(e.target.value)}
+                  placeholder="e.g. remote developers using Cursor, or fashion sustainability"
+                  rows={3}
+                />
+                <button
+                  type="button"
+                  className="xe-btn primary"
+                  disabled={scoutBusy}
+                  onClick={() => runScoutFromTopic()}
+                >
+                  {scoutBusy ? "Generating…" : "Generate"}
+                </button>
+              </div>
+            )}
+
+            {scoutTab === "suggest" && (
+              <div className="x-engager-modal-body">
+                <p className="x-engager-meta" style={{ marginBottom: 12 }}>
+                  Uses Grok with your rotation file and recent posts in this app. Pick a
+                  label to generate the X search string.
+                </p>
+                <button
+                  type="button"
+                  className="xe-btn primary"
+                  disabled={scoutBusy}
+                  onClick={() => runScoutSuggest()}
+                >
+                  {scoutBusy && scoutSuggestions === null
+                    ? "Loading…"
+                    : "Get topic suggestions"}
+                </button>
+                {scoutSuggestions != null && scoutSuggestions.length > 0 && (
+                  <ul className="x-engager-suggest-list">
+                    {scoutSuggestions.map((s, i) => (
+                      <li key={`${s.label}-${i}`}>
+                        <div className="x-engager-suggest-label">{s.label}</div>
+                        {s.rationale && (
+                          <div className="x-engager-suggest-rationale">
+                            {s.rationale}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className="xe-btn"
+                          disabled={scoutBusy}
+                          onClick={() => applyScoutSuggestion(s.label)}
+                        >
+                          Use → fill form
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {scoutError && (
+              <p className="x-engager-meta err x-engager-modal-err">{scoutError}</p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -541,7 +1004,7 @@ function ReplyCard({
 }: {
   reply: PendingReply;
   copiedId: string | null;
-  onCopy: (id: string, text: string) => void;
+  onCopy: (id: string, text: string) => void | Promise<void>;
   onSaveText: (id: string, text: string) => Promise<void>;
   onStatus: (id: string, status: string) => Promise<void>;
   onRegenerate: (id: string) => Promise<void>;
@@ -611,8 +1074,12 @@ function ReplyCard({
           type="button"
           className="xe-btn"
           disabled={!!busy}
+          aria-label="Copy reply to clipboard and open post on X"
           onClick={() =>
-            window.open(r.post_url, "_blank", "noopener,noreferrer")
+            run("open", async () => {
+              await onCopy(r.id, text);
+              window.open(r.post_url, "_blank", "noopener,noreferrer");
+            })
           }
         >
           <ExternalLink size={14} /> Open on X

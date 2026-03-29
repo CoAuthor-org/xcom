@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { PenSquare, FileText, MessageCircle } from "lucide-react";
+import { PenSquare, FileText, MessageCircle, Radar } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -14,12 +14,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-export type NavItemId = "xposter" | "blogposter" | "xengager";
+export type NavItemId = "xposter" | "blogposter" | "xengager" | "scouter";
 
 const NAV_ITEMS: { id: NavItemId; label: string; icon: React.ElementType }[] = [
   { id: "xposter", label: "X Poster", icon: PenSquare },
   { id: "blogposter", label: "Blog Poster", icon: FileText },
   { id: "xengager", label: "X Engager", icon: MessageCircle },
+  { id: "scouter", label: "Scouter", icon: Radar },
 ];
 
 export function AppSidebar({

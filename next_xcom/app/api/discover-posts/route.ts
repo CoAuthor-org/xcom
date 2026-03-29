@@ -38,6 +38,20 @@ async function handleDiscover(request: Request) {
   const batch = url.searchParams.get("batch");
   try {
     const result = await runDiscoverPosts({ batch });
+    console.log(
+      "[discover-posts]",
+      JSON.stringify({
+        batch: result.batch,
+        inserted: result.inserted,
+        candidateCount: result.candidateCount,
+        skippedDueToCap: result.skippedDueToCap,
+        dailyCountBefore: result.dailyCountBefore,
+        errorCount: result.errors?.length ?? 0,
+      })
+    );
+    if (result.errors?.length) {
+      console.log("[discover-posts] errors (first 5):", result.errors.slice(0, 5));
+    }
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

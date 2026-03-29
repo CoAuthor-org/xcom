@@ -272,6 +272,20 @@ export async function clearAllQueues(): Promise<{ cleared: number }> {
   return { cleared };
 }
 
+/**
+ * True when Postgres reports undefined_column (42703) for a given identifier.
+ * Used to degrade gracefully when a migration (e.g. `query_options`) is not applied yet.
+ */
+export function isPostgresUndefinedColumnError(
+  e: unknown,
+  columnName: string
+): boolean {
+  if (!e || typeof e !== "object") return false;
+  const o = e as { code?: string; message?: string };
+  if (o.code !== "42703") return false;
+  return (o.message ?? "").includes(columnName);
+}
+
 export function formatSupabaseError(e: { message?: string; details?: string; hint?: string; code?: string }): string {
   const msg = e.message || String(e);
   const details = e.details || e.hint || (e.code ? `code: ${e.code}` : "");

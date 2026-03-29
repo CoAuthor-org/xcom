@@ -1,0 +1,242 @@
+.scouter {
+  --sc-bg: #e0e0e0;
+  --sc-bg-elev: #e0e0e0;
+  --sc-panel: #e0e0e0;
+  --sc-shadow-dark: #bebebe;
+  --sc-shadow-light: #ffffff;
+  --sc-text: #2d2d2d;
+  --sc-muted: #6b6b6b;
+  --sc-primary: #1d9bf0;
+  --sc-success: #00ba7c;
+  --sc-danger: #f4212e;
+  --sc-border: #bebebe;
+  --sc-raised: 8px 8px 16px var(--sc-shadow-dark), -8px -8px 16px var(--sc-shadow-light);
+  --sc-inset: inset 6px 6px 12px var(--sc-shadow-dark), inset -6px -6px 12px var(--sc-shadow-light);
+  color: var(--sc-text);
+  background: var(--sc-bg);
+  padding: 16px;
+  min-height: 100%;
+}
+
+.scouter * {
+  box-sizing: border-box;
+}
+
+.scouter-hud {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.scouter-metric-card {
+  background: var(--sc-panel);
+  border-radius: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--sc-border);
+  box-shadow: var(--sc-raised);
+}
+
+.scouter-metric-label {
+  margin: 0 0 8px;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  color: var(--sc-muted);
+  text-transform: uppercase;
+}
+
+.scouter-metric-value {
+  margin: 0;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--sc-primary);
+  font-family: "Geist Mono", monospace;
+}
+
+.scouter-main {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 12px;
+  min-height: calc(100vh - 200px);
+}
+
+.scouter-sidebar {
+  background: var(--sc-bg-elev);
+  border: 1px solid var(--sc-border);
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: var(--sc-raised);
+}
+
+.scouter-sidebar-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.scouter-sidebar-sub {
+  margin: 6px 0 12px;
+  color: var(--sc-muted);
+  font-size: 0.82rem;
+}
+
+.scouter-tab-list {
+  display: grid;
+  gap: 8px;
+}
+
+.scouter-tab-btn {
+  all: unset;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--sc-border);
+  background: var(--sc-panel);
+  color: var(--sc-text);
+  font-size: 0.85rem;
+  box-shadow: var(--sc-raised);
+}
+
+.scouter-tab-btn:hover {
+  box-shadow: var(--sc-inset);
+}
+
+.scouter-tab-btn.active {
+  color: var(--sc-primary);
+  box-shadow: var(--sc-inset);
+}
+
+.scouter-canvas {
+  border: 1px solid var(--sc-border);
+  border-radius: 14px;
+  background: var(--sc-bg-elev);
+  box-shadow: var(--sc-raised);
+  overflow: hidden;
+}
+
+.scouter-panel {
+  padding: 14px;
+  height: 100%;
+}
+
+.scouter-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.scouter-panel-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.scouter-panel-sub {
+  margin: 6px 0 0;
+  color: var(--sc-muted);
+  font-size: 0.8rem;
+}
+
+.sc-btn {
+  all: unset;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  border-radius: 999px;
+  border: 1px solid var(--sc-border);
+  background: var(--sc-panel);
+  box-shadow: var(--sc-raised);
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: var(--sc-text);
+}
+
+.sc-btn:hover:not(:disabled) {
+  box-shadow: var(--sc-inset);
+}
+
+.sc-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sc-btn.primary {
+  color: #ffffff;
+  background: var(--sc-primary);
+}
+
+.sc-btn.success {
+  color: var(--sc-success);
+}
+
+.sc-btn.danger {
+  color: var(--sc-danger);
+}
+
+.sc-input,
+.sc-select,
+.sc-textarea {
+  width: 100%;
+  border: 1px solid var(--sc-border);
+  background: var(--sc-bg);
+  color: var(--sc-text);
+  border-radius: 10px;
+  padding: 9px 11px;
+  font-family: "Geist Mono", monospace;
+  box-shadow: var(--sc-inset);
+}
+
+.sc-textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.sc-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--sc-border);
+  border-radius: 12px;
+}
+
+.sc-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.8rem;
+}
+
+.sc-table th,
+.sc-table td {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 8px 9px;
+  text-align: left;
+}
+
+.sc-table th {
+  color: var(--sc-muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+
+.sc-empty {
+  color: var(--sc-muted);
+  font-size: 0.85rem;
+  border: 1px dashed var(--sc-border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+@media (max-width: 980px) {
+  .scouter-hud {
+    grid-template-columns: 1fr;
+  }
+
+  .scouter-main {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+}
