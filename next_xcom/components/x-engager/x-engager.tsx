@@ -19,6 +19,9 @@ import {
   parseQueryOptions,
   type QueryOptionsV1,
 } from "@/lib/x-query-assembler";
+import { useLocalStorageStringState } from "@/lib/use-local-storage-state";
+
+const XE_MAIN_TABS = ["replies", "queries"] as const;
 
 const SERVER_UNREACHABLE_MSG =
   'Server not reachable. Run "npm start" and open http://localhost:3000';
@@ -67,7 +70,9 @@ function previewText(text: string, max = 120): string {
 }
 
 export function XEngager() {
-  const [tab, setTab] = React.useState<"replies" | "queries">("replies");
+  const [tab, setTab] = useLocalStorageStringState<
+    (typeof XE_MAIN_TABS)[number]
+  >("xcom:xengager:mainTab", "replies", XE_MAIN_TABS);
   const [replies, setReplies] = React.useState<PendingReply[]>([]);
   const [meta, setMeta] = React.useState<RepliesMeta | null>(null);
   const [statusFilter, setStatusFilter] = React.useState<string>("pending");

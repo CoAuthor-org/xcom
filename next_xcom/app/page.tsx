@@ -1,8 +1,12 @@
 "use client";
 
-import * as React from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar, type NavItemId } from "@/components/app-sidebar";
+import {
+  AppSidebar,
+  NAV_ITEM_IDS,
+  type NavItemId,
+} from "@/components/app-sidebar";
+import { useLocalStorageStringState } from "@/lib/use-local-storage-state";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { XPoster } from "@/components/xposter/xposter";
 import { BlogPoster } from "@/components/blog-poster/blog-poster";
@@ -10,7 +14,11 @@ import { XEngager } from "@/components/x-engager/x-engager";
 import { ScouterDashboard } from "@/components/scouter/scouter-dashboard";
 
 export default function Home() {
-  const [activeId, setActiveId] = React.useState<NavItemId>("xposter");
+  const [activeId, setActiveId] = useLocalStorageStringState<NavItemId>(
+    "xcom:nav:activeId",
+    "xposter",
+    NAV_ITEM_IDS
+  );
 
   return (
     <SidebarProvider defaultCollapsed={false}>

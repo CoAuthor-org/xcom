@@ -16,6 +16,14 @@ import {
 
 export type NavItemId = "xposter" | "blogposter" | "xengager" | "scouter";
 
+/** For localStorage restore; order matches sidebar. */
+export const NAV_ITEM_IDS: readonly NavItemId[] = [
+  "xposter",
+  "blogposter",
+  "xengager",
+  "scouter",
+];
+
 const NAV_ITEMS: { id: NavItemId; label: string; icon: React.ElementType }[] = [
   { id: "xposter", label: "X Poster", icon: PenSquare },
   { id: "blogposter", label: "Blog Poster", icon: FileText },
