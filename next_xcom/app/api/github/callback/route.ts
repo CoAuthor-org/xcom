@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { exchangeCodeForToken } from "@/lib/github";
+import { upsertGitHubConnection, isBlogGithubDbConfigured } from "@/lib/blog-github-db";
+import { exchangeCodeForToken, getCurrentUser } from "@/lib/github";
 
 const GITHUB_TOKEN_COOKIE = "github_token";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -22,6 +23,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const token = await exchangeCodeForToken(code);
+    if (isBlogGithubDbConfigured()) {
+      try {
+        const user = await getCurrentUser(token);
+        await upsertGitHubConnection(user.id, user.login, token);
+      } catch {
+        // Cookie still set; user can reconnect if DB upsert fails
+      }
+    }
     const response = NextResponse.redirect(new URL("/", request.url));
     response.cookies.set(GITHUB_TOKEN_COOKIE, token, {
       httpOnly: true,

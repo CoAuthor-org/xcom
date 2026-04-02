@@ -16,7 +16,7 @@ export function getGitHubAuthUrl(): string {
   const params = new URLSearchParams({
     client_id: GITHUB_CLIENT_ID,
     redirect_uri: GITHUB_CALLBACK_URL,
-    scope: "read:user read:org",
+    scope: "read:user read:org repo",
     allow_signup: "true",
   });
   return `https://github.com/login/oauth/authorize?${params}`;
@@ -100,6 +100,56 @@ export async function listPRsForOrg(
   return data.items ?? [];
 }
 
-export async function getCurrentUser(token: string): Promise<{ login: string }> {
-  return fetchGitHub<{ login: string }>("/user", token);
+export async function getCurrentUser(
+  token: string
+): Promise<{ login: string; id: number }> {
+  return fetchGitHub<{ login: string; id: number }>("/user", token);
+}
+
+export interface GitHubRepoListItem {
+  full_name: string;
+  name: string;
+  owner: { login: string };
+  private: boolean;
+  default_branch: string | null;
+}
+
+export async function listUserRepos(token: string): Promise<GitHubRepoListItem[]> {
+  const items: GitHubRepoListItem[] = [];
+  let page = 1;
+  const perPage = 100;
+  while (page <= 5) {
+    const batch = await fetchGitHub<GitHubRepoListItem[]>("/user/repos", token, {
+      per_page: String(perPage),
+      page: String(page),
+      sort: "updated",
+      affiliation: "owner,collaborator,organization_member",
+    });
+    items.push(...batch);
+    if (batch.length < perPage) break;
+    page++;
+  }
+  return items;
+}
+
+export async function fetchCommitDiff(
+  token: string,
+  owner: string,
+  repo: string,
+  sha: string
+): Promise<string> {
+  const path = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/commits/${encodeURIComponent(sha)}`;
+  const url = new URL(`https://api.github.com${path}`);
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/vnd.github.diff",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`GitHub API error: ${res.status} ${err}`);
+  }
+  return res.text();
 }
