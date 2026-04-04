@@ -29,6 +29,16 @@ function getInReplyToTweetId(t: TweetV2): string | null {
   return ref?.id ?? null;
 }
 
+/** Only enqueue mentions from roughly the last 24h (cron runs often; avoids backfilling years of history). */
+const MENTION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+function isMentionOlderThanWindow(t: TweetV2): boolean {
+  if (!t.created_at) return true;
+  const ts = Date.parse(t.created_at);
+  if (Number.isNaN(ts)) return true;
+  return Date.now() - ts > MENTION_MAX_AGE_MS;
+}
+
 function conversationSearchEnabled(): boolean {
   const v = envTrim("X_ENGAGER_INBOUND_CONVERSATION_SEARCH").toLowerCase();
   return v === "1" || v === "true" || v === "yes" || v === "on";
@@ -68,6 +78,7 @@ export type PollMentionsResult = {
   fetched: number;
   skippedSelf: number;
   skippedExisting: number;
+  skippedOlderThan24h: number;
   errors: string[];
   newSinceId: string | null;
 };
@@ -83,6 +94,7 @@ export async function runPollMentions(
     fetched: 0,
     skippedSelf: 0,
     skippedExisting: 0,
+    skippedOlderThan24h: 0,
     errors: [],
     newSinceId: null,
   };
@@ -200,6 +212,10 @@ export async function runPollMentions(
       empty.skippedExisting++;
       continue;
     }
+    if (isMentionOlderThanWindow(t)) {
+      empty.skippedOlderThan24h++;
+      continue;
+    }
 
     const authorUser = paginator.includes.author(t);
     const authorUsername = authorUser?.username ?? "unknown";
@@ -299,6 +315,13 @@ export async function runPollMentions(
 
     existingSet.add(t.id);
     empty.inserted++;
+  }
+
+  if (empty.skippedOlderThan24h > 0) {
+    console.log(
+      "[poll-mentions] skipped mentions older than 24h:",
+      empty.skippedOlderThan24h
+    );
   }
 
   const pollErr =
