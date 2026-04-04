@@ -96,8 +96,8 @@ Apply migration [`migrations/008_reply_automation.sql`](../migrations/008_reply_
 
 | Secret | Description |
 |--------|-------------|
-| `APP_BASE_URL` | Deployed origin, no trailing slash (e.g. `https://your-app.vercel.app`) |
-| `CRON_SECRET` | Must match the Vercel/server `CRON_SECRET` |
+| `APP_BASE_URL` **or** `SITE_URL` | **Required.** Your live site origin (e.g. `https://your-app.vercel.app`), no trailing slash. GitHub’s runner is not your server — it needs this URL to know where to `curl`. This is independent of `CRON_SECRET`. |
+| `CRON_SECRET` | Must match the Vercel/server `CRON_SECRET`. Sent as `Authorization: Bearer …` so `/api/cron/poll-mentions` accepts the request. |
 
 The **Inbound** tab in X Engager lists `inbound_reply_queue` rows; **Post reply** uses `POST /2/tweets` with `reply.in_reply_to_tweet_id` set to the mention tweet id.
 
