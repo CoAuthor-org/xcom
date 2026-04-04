@@ -10,6 +10,7 @@ import {
   CircleCheck,
   Bookmark,
   Sparkles,
+  Send,
 } from "lucide-react";
 import "./x-engager.css";
 import { QueryBuilderPanel } from "./query-builder-panel";
@@ -22,6 +23,7 @@ import {
 import { useLocalStorageStringState } from "@/lib/use-local-storage-state";
 
 const XE_MAIN_TABS = ["replies", "queries"] as const;
+const XE_REPLIES_SUB_TABS = ["outbound", "inbound"] as const;
 
 const SERVER_UNREACHABLE_MSG =
   'Server not reachable. Run "npm start" and open http://localhost:3000';
@@ -54,6 +56,35 @@ interface SearchQueryRow {
   query_options?: unknown;
 }
 
+interface InboundMentionEmbed {
+  id: string;
+  author_id: string;
+  author_username: string;
+  text: string;
+  conversation_id: string | null;
+  in_reply_to_tweet_id: string | null;
+  created_at: string;
+}
+
+interface InboundQueueItem {
+  id: string;
+  mention_id: string;
+  original_context: Record<string, unknown>;
+  grok_suggestion: string;
+  edited_reply: string | null;
+  status: string;
+  posted_tweet_id: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  incoming_mentions: InboundMentionEmbed | InboundMentionEmbed[] | null;
+}
+
+interface InboundPollMeta {
+  lastMentionsPollAt: string | null;
+  lastMentionsPollError: string | null;
+  lastMentionsSinceId: string | null;
+}
+
 interface DiscoverApiResult {
   inserted?: number;
   candidateCount?: number;
@@ -69,10 +100,20 @@ function previewText(text: string, max = 120): string {
   return `${t.slice(0, max)}…`;
 }
 
+function normalizeInboundMention(
+  m: InboundMentionEmbed | InboundMentionEmbed[] | null
+): InboundMentionEmbed | null {
+  if (!m) return null;
+  return Array.isArray(m) ? m[0] ?? null : m;
+}
+
 export function XEngager() {
   const [tab, setTab] = useLocalStorageStringState<
     (typeof XE_MAIN_TABS)[number]
   >("xcom:xengager:mainTab", "replies", XE_MAIN_TABS);
+  const [repliesSubTab, setRepliesSubTab] = useLocalStorageStringState<
+    (typeof XE_REPLIES_SUB_TABS)[number]
+  >("xcom:xengager:repliesSubTab", "outbound", XE_REPLIES_SUB_TABS);
   const [replies, setReplies] = React.useState<PendingReply[]>([]);
   const [meta, setMeta] = React.useState<RepliesMeta | null>(null);
   const [statusFilter, setStatusFilter] = React.useState<string>("pending");
@@ -106,6 +147,16 @@ export function XEngager() {
   const [scoutSuggestions, setScoutSuggestions] = React.useState<
     { label: string; rationale: string }[] | null
   >(null);
+
+  const [inboundItems, setInboundItems] = React.useState<InboundQueueItem[]>(
+    []
+  );
+  const [inboundMeta, setInboundMeta] = React.useState<InboundPollMeta | null>(
+    null
+  );
+  const [inboundLoading, setInboundLoading] = React.useState(true);
+  const [inboundStatusFilter, setInboundStatusFilter] =
+    React.useState<string>("");
 
   const loadReplies = React.useCallback(async () => {
     setError(null);
@@ -145,6 +196,33 @@ export function XEngager() {
     }
   }, [statusFilter, todayOnly]);
 
+  const loadInbound = React.useCallback(async () => {
+    setError(null);
+    try {
+      const params = new URLSearchParams();
+      if (inboundStatusFilter) params.set("status", inboundStatusFilter);
+      const q = params.toString();
+      const res = await fetch(`/api/inbound-replies${q ? `?${q}` : ""}`);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error((j as { error?: string }).error || res.statusText);
+      }
+      const data = (await res.json()) as {
+        items: InboundQueueItem[];
+        meta: InboundPollMeta;
+      };
+      setInboundItems(data.items ?? []);
+      setInboundMeta(data.meta ?? null);
+    } catch (e) {
+      console.error(e);
+      setError(
+        e instanceof Error ? e.message : SERVER_UNREACHABLE_MSG
+      );
+    } finally {
+      setInboundLoading(false);
+    }
+  }, [inboundStatusFilter]);
+
   const loadQueries = React.useCallback(async () => {
     try {
       const res = await fetch("/api/queries");
@@ -168,6 +246,13 @@ export function XEngager() {
   React.useEffect(() => {
     if (tab === "queries") loadQueries();
   }, [tab, loadQueries]);
+
+  React.useEffect(() => {
+    if (tab === "replies" && repliesSubTab === "inbound") {
+      setInboundLoading(true);
+      loadInbound();
+    }
+  }, [tab, repliesSubTab, loadInbound]);
 
   React.useEffect(() => {
     if (builderActive) {
@@ -453,6 +538,66 @@ export function XEngager() {
     }
   };
 
+  const updateInboundLocal = (id: string, patch: Partial<InboundQueueItem>) => {
+    setInboundItems((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, ...patch } : r))
+    );
+  };
+
+  const saveInboundDraft = async (id: string, edited_reply: string) => {
+    const res = await fetch(`/api/inbound-replies/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ edited_reply }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error((j as { error?: string }).error || "Save failed");
+    }
+    const j = (await res.json()) as { item: InboundQueueItem };
+    updateInboundLocal(id, j.item);
+  };
+
+  const setInboundStatus = async (id: string, status: string) => {
+    const res = await fetch(`/api/inbound-replies/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error((j as { error?: string }).error || "Update failed");
+    }
+    const j = (await res.json()) as { item: InboundQueueItem };
+    updateInboundLocal(id, j.item);
+  };
+
+  const postInboundReply = async (id: string, text?: string) => {
+    const res = await fetch(`/api/inbound-replies/${id}/post`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(text != null && text !== "" ? { text } : {}),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error((j as { error?: string }).error || "Post failed");
+    }
+    const j = (await res.json()) as { item: InboundQueueItem };
+    updateInboundLocal(id, j.item);
+  };
+
+  const regenerateInbound = async (id: string) => {
+    const res = await fetch(`/api/inbound-replies/${id}/regenerate`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      throw new Error((j as { error?: string }).error || "Regenerate failed");
+    }
+    const j = (await res.json()) as { item: InboundQueueItem };
+    updateInboundLocal(id, j.item);
+  };
+
   const submitQuery = async (e: React.FormEvent) => {
     e.preventDefault();
     const qs = builderActive
@@ -610,75 +755,180 @@ export function XEngager() {
 
       {tab === "replies" && (
         <>
-          <div className="x-engager-toolbar">
-            <select
-              className="x-engager-select"
-              value={statusFilter}
-              onChange={(e) => {
-                setLoading(true);
-                setStatusFilter(e.target.value);
-              }}
-              aria-label="Filter by status"
-            >
-              <option value="">All statuses</option>
-              <option value="pending">Pending</option>
-              <option value="ready">Ready</option>
-              <option value="done">Done</option>
-              <option value="rejected">Rejected</option>
-            </select>
-            <label className="x-engager-check">
-              <input
-                type="checkbox"
-                checked={todayOnly}
-                onChange={(e) => {
-                  setLoading(true);
-                  setTodayOnly(e.target.checked);
-                }}
-              />
-              Today only
-            </label>
+          <div className="x-engager-subtabs" role="tablist" aria-label="Replies mode">
             <button
               type="button"
-              className="xe-btn"
-              onClick={() => {
-                setLoading(true);
-                loadReplies();
-              }}
+              role="tab"
+              className={`x-engager-tab ${repliesSubTab === "outbound" ? "active" : ""}`}
+              onClick={() => setRepliesSubTab("outbound")}
             >
-              Refresh
+              Outbound
             </button>
             <button
               type="button"
-              className="xe-btn danger"
-              disabled={clearingDone}
-              onClick={() => clearDoneReplies()}
+              role="tab"
+              className={`x-engager-tab ${repliesSubTab === "inbound" ? "active" : ""}`}
+              onClick={() => setRepliesSubTab("inbound")}
             >
-              {clearingDone ? "Clearing…" : "Clear replied (done)"}
+              Inbound
             </button>
           </div>
 
-          {loading ? (
-            <p className="x-engager-empty">Loading…</p>
-          ) : replies.length === 0 ? (
-            <p className="x-engager-empty">
-              No replies match this filter. Run discovery or adjust filters.
-            </p>
-          ) : (
-            <div className="x-engager-cards">
-              {replies.map((r) => (
-                <ReplyCard
-                  key={r.id}
-                  reply={r}
-                  copiedId={copiedId}
-                  onCopy={copyAndFlash}
-                  onSaveText={saveReplyText}
-                  onStatus={setStatus}
-                  onRegenerate={regenerate}
-                  onDelete={removeReply}
-                  onError={setError}
-                />
-              ))}
-            </div>
+          {repliesSubTab === "outbound" && (
+            <>
+              <div className="x-engager-toolbar">
+                <select
+                  className="x-engager-select"
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setLoading(true);
+                    setStatusFilter(e.target.value);
+                  }}
+                  aria-label="Filter by status"
+                >
+                  <option value="">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="ready">Ready</option>
+                  <option value="done">Done</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <label className="x-engager-check">
+                  <input
+                    type="checkbox"
+                    checked={todayOnly}
+                    onChange={(e) => {
+                      setLoading(true);
+                      setTodayOnly(e.target.checked);
+                    }}
+                  />
+                  Today only
+                </label>
+                <button
+                  type="button"
+                  className="xe-btn"
+                  onClick={() => {
+                    setLoading(true);
+                    loadReplies();
+                  }}
+                >
+                  Refresh
+                </button>
+                <button
+                  type="button"
+                  className="xe-btn danger"
+                  disabled={clearingDone}
+                  onClick={() => clearDoneReplies()}
+                >
+                  {clearingDone ? "Clearing…" : "Clear replied (done)"}
+                </button>
+              </div>
+
+              {loading ? (
+                <p className="x-engager-empty">Loading…</p>
+              ) : replies.length === 0 ? (
+                <p className="x-engager-empty">
+                  No replies match this filter. Run discovery or adjust filters.
+                </p>
+              ) : (
+                <div className="x-engager-cards">
+                  {replies.map((r) => (
+                    <ReplyCard
+                      key={r.id}
+                      reply={r}
+                      copiedId={copiedId}
+                      onCopy={copyAndFlash}
+                      onSaveText={saveReplyText}
+                      onStatus={setStatus}
+                      onRegenerate={regenerate}
+                      onDelete={removeReply}
+                      onError={setError}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {repliesSubTab === "inbound" && (
+            <>
+              <div className="x-engager-toolbar">
+                <select
+                  className="x-engager-select"
+                  value={inboundStatusFilter}
+                  onChange={(e) => {
+                    setInboundLoading(true);
+                    setInboundStatusFilter(e.target.value);
+                  }}
+                  aria-label="Filter inbound by status"
+                >
+                  <option value="">All statuses</option>
+                  <option value="pending_review">Pending review</option>
+                  <option value="approved">Approved</option>
+                  <option value="posted">Posted</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="manual">Manual</option>
+                </select>
+                <button
+                  type="button"
+                  className="xe-btn"
+                  onClick={() => {
+                    setInboundLoading(true);
+                    loadInbound();
+                  }}
+                >
+                  Refresh
+                </button>
+              </div>
+              {inboundMeta?.lastMentionsPollAt && (
+                <p className="x-engager-meta" style={{ marginBottom: 12 }}>
+                  Last mentions poll:{" "}
+                  {new Date(inboundMeta.lastMentionsPollAt).toLocaleString(
+                    undefined,
+                    { dateStyle: "medium", timeStyle: "short" }
+                  )}
+                  {inboundMeta.lastMentionsPollError && (
+                    <span className="x-engager-meta err" style={{ display: "block" }}>
+                      Poll issues: {inboundMeta.lastMentionsPollError}
+                    </span>
+                  )}
+                </p>
+              )}
+              {!inboundMeta?.lastMentionsPollAt && inboundMeta?.lastMentionsPollError && (
+                <p className="x-engager-meta err" style={{ marginBottom: 12 }}>
+                  Poll issues: {inboundMeta.lastMentionsPollError}
+                </p>
+              )}
+              <p className="x-engager-meta" style={{ marginBottom: 12, maxWidth: 720 }}>
+                New @mentions are fetched on a schedule via{" "}
+                <code style={{ fontSize: "0.85em" }}>/api/cron/poll-mentions</code> (OAuth user
+                context required). Apply migration{" "}
+                <code style={{ fontSize: "0.85em" }}>012_inbound_engager.sql</code> in Supabase.
+              </p>
+              {inboundLoading ? (
+                <p className="x-engager-empty">Loading…</p>
+              ) : inboundItems.length === 0 ? (
+                <p className="x-engager-empty">
+                  No inbound items match this filter. When the poller runs, new mentions appear
+                  here with a Grok draft.
+                </p>
+              ) : (
+                <div className="x-engager-cards">
+                  {inboundItems.map((row) => (
+                    <InboundReplyCard
+                      key={row.id}
+                      item={row}
+                      copiedId={copiedId}
+                      onCopy={copyAndFlash}
+                      onSaveDraft={saveInboundDraft}
+                      onStatus={setInboundStatus}
+                      onPost={postInboundReply}
+                      onRegenerate={regenerateInbound}
+                      onError={setError}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </>
       )}
@@ -994,6 +1244,235 @@ export function XEngager() {
         </div>
       )}
     </div>
+  );
+}
+
+function InboundReplyCard({
+  item,
+  copiedId,
+  onCopy,
+  onSaveDraft,
+  onStatus,
+  onPost,
+  onRegenerate,
+  onError,
+}: {
+  item: InboundQueueItem;
+  copiedId: string | null;
+  onCopy: (id: string, text: string) => void | Promise<void>;
+  onSaveDraft: (id: string, text: string) => Promise<void>;
+  onStatus: (id: string, status: string) => Promise<void>;
+  onPost: (id: string, text?: string) => Promise<void>;
+  onRegenerate: (id: string) => Promise<void>;
+  onError: (msg: string | null) => void;
+}) {
+  const mention = normalizeInboundMention(item.incoming_mentions);
+  const ctx = item.original_context as {
+    parent_tweet?: { text?: string } | null;
+    thread_summary?: string | null;
+  };
+  const base =
+    item.edited_reply != null && item.edited_reply !== ""
+      ? item.edited_reply
+      : item.grok_suggestion;
+  const [text, setText] = React.useState(base);
+  const [saving, setSaving] = React.useState(false);
+  const [busy, setBusy] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    const next =
+      item.edited_reply != null && item.edited_reply !== ""
+        ? item.edited_reply
+        : item.grok_suggestion;
+    setText(next);
+  }, [item.edited_reply, item.grok_suggestion, item.id]);
+
+  const serverDraft =
+    item.edited_reply != null && item.edited_reply !== ""
+      ? item.edited_reply
+      : item.grok_suggestion;
+  const dirty = text !== serverDraft;
+
+  const mentionUrl = mention
+    ? `https://x.com/${mention.author_username}/status/${mention.id}`
+    : `https://x.com/i/status/${item.mention_id}`;
+
+  const save = async () => {
+    setSaving(true);
+    onError(null);
+    try {
+      await onSaveDraft(item.id, text);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const run = async (label: string, fn: () => Promise<void>) => {
+    setBusy(label);
+    onError(null);
+    try {
+      await fn();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const canPost =
+    item.status !== "posted" &&
+    item.status !== "rejected" &&
+    item.status !== "manual";
+
+  return (
+    <article className="x-engager-card">
+      <div className="x-engager-card-head">
+        <p className="x-engager-author">
+          {mention ? (
+            <a
+              href={`https://x.com/${mention.author_username}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              @{mention.author_username}
+            </a>
+          ) : (
+            <span>@{item.mention_id}</span>
+          )}
+        </p>
+        <span className="x-engager-badge">{item.status}</span>
+      </div>
+      {ctx.parent_tweet?.text && (
+        <div className="x-engager-inbound-context">
+          <span className="x-engager-label" style={{ display: "block", marginBottom: 4 }}>
+            They replied to
+          </span>
+          {previewText(ctx.parent_tweet.text, 280)}
+        </div>
+      )}
+      {ctx.thread_summary && (
+        <div className="x-engager-inbound-context">
+          <span className="x-engager-label" style={{ display: "block", marginBottom: 4 }}>
+            Thread context
+          </span>
+          <span style={{ whiteSpace: "pre-wrap" }}>{ctx.thread_summary}</span>
+        </div>
+      )}
+      <p className="x-engager-label">Their mention</p>
+      <div className="x-engager-inbound-mention">
+        {mention ? previewText(mention.text, 400) : "—"}
+      </div>
+      <p className="x-engager-label">Your reply (Grok draft)</p>
+      <textarea
+        className="x-engager-textarea"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        maxLength={280}
+        spellCheck
+        disabled={item.status === "posted"}
+      />
+      <div className="x-engager-char">{text.length} / 280</div>
+      {item.posted_tweet_id && (
+        <p className="x-engager-meta" style={{ marginBottom: 8 }}>
+          Posted:{" "}
+          <a
+            href={`https://x.com/i/status/${item.posted_tweet_id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            view your reply
+          </a>
+        </p>
+      )}
+      <div className="x-engager-actions">
+        <button
+          type="button"
+          className="xe-btn"
+          disabled={!!busy}
+          onClick={() =>
+            run("open", async () => {
+              await onCopy(item.id, text);
+              window.open(mentionUrl, "_blank", "noopener,noreferrer");
+            })
+          }
+        >
+          <ExternalLink size={14} /> Open mention
+        </button>
+        <button
+          type="button"
+          className="xe-btn primary"
+          disabled={!!busy}
+          onClick={() => onCopy(item.id, text)}
+        >
+          {copiedId === item.id ? <Check size={14} /> : <Copy size={14} />}
+          {copiedId === item.id ? "Copied" : "Copy reply"}
+        </button>
+        {dirty && item.status !== "posted" && (
+          <button
+            type="button"
+            className="xe-btn success"
+            disabled={saving || !!busy}
+            onClick={() => save()}
+          >
+            {saving ? "Saving…" : "Save draft"}
+          </button>
+        )}
+        <button
+          type="button"
+          className="xe-btn"
+          disabled={!!busy || item.status === "posted"}
+          onClick={() => run("regen", () => onRegenerate(item.id))}
+        >
+          <RefreshCw
+            size={14}
+            className={busy === "regen" ? "animate-spin" : ""}
+          />
+          Regenerate
+        </button>
+        {canPost && (
+          <button
+            type="button"
+            className="xe-btn"
+            disabled={!!busy}
+            onClick={() => run("approve", () => onStatus(item.id, "approved"))}
+          >
+            <Bookmark size={14} /> Approve
+          </button>
+        )}
+        {canPost && (
+          <button
+            type="button"
+            className="xe-btn primary"
+            disabled={!!busy || !text.trim()}
+            onClick={() => run("post", () => onPost(item.id, text))}
+          >
+            <Send size={14} /> Post reply
+          </button>
+        )}
+        {item.status !== "posted" && (
+          <button
+            type="button"
+            className="xe-btn"
+            disabled={!!busy}
+            onClick={() => run("manual", () => onStatus(item.id, "manual"))}
+          >
+            Mark manual
+          </button>
+        )}
+        {item.status !== "posted" && (
+          <button
+            type="button"
+            className="xe-btn danger"
+            disabled={!!busy}
+            onClick={() => run("reject", () => onStatus(item.id, "rejected"))}
+          >
+            Reject
+          </button>
+        )}
+      </div>
+    </article>
   );
 }
 

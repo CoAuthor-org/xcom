@@ -48,6 +48,22 @@ export function augmentQueryForExcludeSelf(queryString: string): string {
   return `(${q}) -from:${raw}`;
 }
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Skip tweets authored by you or whose text mentions your handle (RTs, threads, etc.).
+ * Uses X_OWN_USERNAME (with or without @). No-op if unset.
+ */
+export function shouldSkipTweetForSelf(tweet: DiscoveredTweet): boolean {
+  const raw = envTrim("X_OWN_USERNAME").replace(/^@/, "");
+  if (!raw) return false;
+  if (tweet.author_username.toLowerCase() === raw.toLowerCase()) return true;
+  const mention = new RegExp(`@?${escapeRegex(raw)}\\b`, "i");
+  return mention.test(tweet.text);
+}
+
 function tweetToDiscovered(
   t: TweetV2,
   username: string

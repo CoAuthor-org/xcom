@@ -1,0 +1,33 @@
+# X Engager inbound: poll user @mentions and enqueue Grok drafts (OAuth user context required on the server).
+# Vercel Hobby often allows only two crons; this workflow avoids a third Vercel cron slot.
+name: Poll X mentions (inbound)
+
+on:
+  schedule:
+    # Every 15 minutes UTC (tighten to */5 * * * * if you need faster pickup and have Actions budget)
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  poll-mentions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit poll-mentions cron route
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_BASE_URL" ]; then
+            echo "Set repository secret APP_BASE_URL to your deployed origin (e.g. https://your-app.vercel.app) with no trailing slash."
+            exit 1
+          fi
+          BASE="${APP_BASE_URL%/}"
+          if [ -n "$CRON_SECRET" ]; then
+            curl -sS -f -X POST "$BASE/api/cron/poll-mentions" \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              -H "Accept: application/json"
+          else
+            echo "Warning: CRON_SECRET empty — only safe on private networks. Set CRON_SECRET to match the server env."
+            curl -sS -f -X POST "$BASE/api/cron/poll-mentions" \
+              -H "Accept: application/json"
+          fi

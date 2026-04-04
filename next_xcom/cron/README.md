@@ -79,3 +79,26 @@ Set in the Vercel project:
 | `X_ENGAGER_BRAND_NAME`, `X_ENGAGER_TONE` | Optional Grok persona |
 
 Apply migration [`migrations/008_reply_automation.sql`](../migrations/008_reply_automation.sql) in Supabase. Discovery **does not** post tweets; it only inserts rows for you to copy from the app.
+
+---
+
+## X Engager inbound (@mentions) — GitHub Actions (recommended)
+
+**Inbound** replies use `GET /2/users/:id/mentions` and require **OAuth 1.0a user context** on the server (same `X_API_KEY` / `X_ACCESS_TOKEN` vars as posting). Bearer-only search tokens **cannot** poll mentions.
+
+1. Apply migration [`migrations/012_inbound_engager.sql`](../migrations/012_inbound_engager.sql) in Supabase (extends `reply_automation_meta` with `last_mentions_since_id`, etc.).
+2. Cron route: `POST` or `GET` `/api/cron/poll-mentions` — same `CRON_SECRET` auth as discover (`Authorization: Bearer …` or `?secret=`).
+3. Optional env on the server:
+   - **`X_USER_ID`**: Your numeric X user id (if omitted, the app calls `v2.me()` once and caches id in `reply_automation_meta.cached_x_user_id`).
+   - **`X_ENGAGER_INBOUND_CONVERSATION_SEARCH`**: set to `1` / `true` to run an extra recent search per mention for thread summary (uses search quota).
+
+**Scheduling:** [`../../.github/workflows/cron-poll-x-mentions.yml`](../../.github/workflows/cron-poll-x-mentions.yml) calls your deployed app every 15 minutes. Add repository secrets:
+
+| Secret | Description |
+|--------|-------------|
+| `APP_BASE_URL` | Deployed origin, no trailing slash (e.g. `https://your-app.vercel.app`) |
+| `CRON_SECRET` | Must match the Vercel/server `CRON_SECRET` |
+
+The **Inbound** tab in X Engager lists `inbound_reply_queue` rows; **Post reply** uses `POST /2/tweets` with `reply.in_reply_to_tweet_id` set to the mention tweet id.
+
+If you use **Vercel Pro** and prefer hosting the schedule there, add another entry in `vercel.json` pointing at `/api/cron/poll-mentions` instead of (or in addition to) this workflow.

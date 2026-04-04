@@ -140,6 +140,41 @@
   box-shadow: var(--neo-inset-sm);
 }
 
+.x-engager-subtabs {
+  display: flex;
+  gap: 6px;
+  margin: -4px 0 14px;
+  padding-left: 2px;
+}
+
+.x-engager-subtabs .x-engager-tab {
+  padding: 7px 14px;
+  font-size: 0.82rem;
+}
+
+.x-engager-inbound-context {
+  font-size: 0.82rem;
+  color: var(--neo-text-muted);
+  line-height: 1.45;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-inset-sm);
+}
+
+.x-engager-inbound-mention {
+  font-size: 0.9rem;
+  color: var(--neo-text);
+  line-height: 1.45;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border-left: 3px solid var(--neo-accent);
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+}
+
 .x-engager-toolbar {
   display: flex;
   flex-wrap: wrap;

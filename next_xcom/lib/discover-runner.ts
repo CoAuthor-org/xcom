@@ -1,9 +1,14 @@
 import { supabase } from "./supabase";
 import { generateReplyForPost } from "./grok-reply";
-import { searchRecentTweets, type DiscoveredTweet } from "./x-discovery";
+import {
+  searchRecentTweets,
+  shouldSkipTweetForSelf,
+  type DiscoveredTweet,
+} from "./x-discovery";
 import {
   countTodayNonRejected,
   getDailyCap,
+  loadEngagedAuthorLowercaseSetToday,
   setReplyAutomationMeta,
 } from "./reply-automation";
 
@@ -32,6 +37,48 @@ export function tweetLooksLikeOffPlatformCta(text: string): boolean {
     return true;
   if (/\bdm\s+me\s+(for|to\s+join)\b/i.test(t)) return true;
   if (/join\s+(our\s+)?(telegram|discord|tg\b|waitlist)\b/i.test(t))
+    return true;
+  return false;
+}
+
+/**
+ * On-X sales / funnel posts: join a community, follow-bait, subscribe CTAs, hard product pitches.
+ * Skipped before Grok when X_ENGAGER_DISCOVERY_SKIP_OFFPLATFORM is on (same toggle as off-platform CTAs).
+ */
+export function tweetLooksLikeSalesyFunnelCta(text: string): boolean {
+  const t = text;
+  if (/\bjoin\s+here\s*:/i.test(t)) return true;
+  if (/\bjoin\s+us\s*:/i.test(t)) return true;
+  if (/\bjoin\s+the\s+community\b/i.test(t)) return true;
+  if (/\b(sign\s+up|enroll|apply)\s+here\s*:/i.test(t)) return true;
+  if (
+    /(?:(?:I'?m|we'?re)\s+)?build(?:ing)?\s+a\s+community\b/i.test(t) &&
+    /\bjoin\b/i.test(t)
+  )
+    return true;
+  if (
+    /\b(?:get|grab)\s+(your\s+)?(spot|seat|access|copy)\b/i.test(t) &&
+    /https?:\/\//i.test(t)
+  )
+    return true;
+  if (/\b(buy|shop|order)\s+now\b/i.test(t)) return true;
+  if (/\b(limited\s+time|today\s+only)\b.*\b(offer|sale|discount)\b/i.test(t))
+    return true;
+  if (/\bfollow\s+(me\s+)?(@\w+\s+)?for\s+(more|tips|threads|updates)\b/i.test(t))
+    return true;
+  if (
+    /\b(hit\s+)?subscribe\b/i.test(t) &&
+    /\b(youtube|yt|channel|substack|beehiiv)\b/i.test(t)
+  )
+    return true;
+  if (
+    /\bsubscribe\s+to\s+(my\s+)?(youtube|yt|channel|substack|beehiiv)\b/i.test(t)
+  )
+    return true;
+  if (/\blink\s+in\s+bio\b/i.test(t) && /\b(follow|join|subscribe|shop)\b/i.test(t))
+    return true;
+  if (/\bbecome\s+a\s+member\b/i.test(t) && /https?:\/\//i.test(t)) return true;
+  if (/\bjoin\s+my\b/i.test(t) && /\b(community|cohort|program|group|skool)\b/i.test(t))
     return true;
   return false;
 }
@@ -175,10 +222,14 @@ export async function runDiscoverPosts(opts: {
   const skipRegex = getDiscoverySkipRegex();
   let skippedByFilter = 0;
   let skippedOffPlatformCta = 0;
+  let skippedGrokAuthor = 0;
+  let skippedSelf = 0;
+  let skippedDuplicateAuthorToday = 0;
   const offPlatformOn = isOffPlatformCtaFilterEnabled();
+  const engagedToday = await loadEngagedAuthorLowercaseSetToday(supabase);
 
   let inserted = 0;
-  let grokIndex = 0;
+  let grokCalls = 0;
 
   for (const tweet of candidates) {
     if (inserted >= slots) break;
@@ -188,13 +239,33 @@ export async function runDiscoverPosts(opts: {
       continue;
     }
 
-    if (offPlatformOn && tweetLooksLikeOffPlatformCta(tweet.text)) {
+    if (
+      offPlatformOn &&
+      (tweetLooksLikeOffPlatformCta(tweet.text) ||
+        tweetLooksLikeSalesyFunnelCta(tweet.text))
+    ) {
       skippedOffPlatformCta++;
       continue;
     }
 
-    if (grokIndex > 0) await sleep(1000);
-    grokIndex++;
+    if (tweet.author_username.toLowerCase() === "grok") {
+      skippedGrokAuthor++;
+      continue;
+    }
+
+    if (shouldSkipTweetForSelf(tweet)) {
+      skippedSelf++;
+      continue;
+    }
+
+    const authorKey = tweet.author_username.toLowerCase();
+    if (engagedToday.has(authorKey)) {
+      skippedDuplicateAuthorToday++;
+      continue;
+    }
+
+    if (grokCalls > 0) await sleep(1000);
+    grokCalls++;
 
     let generatedReply: string;
     try {
@@ -202,6 +273,12 @@ export async function runDiscoverPosts(opts: {
       generatedReply = gen.text;
       if (!generatedReply.trim()) {
         errors.push(`tweet ${tweet.tweet_id}: empty Grok reply`);
+        continue;
+      }
+      if (generatedReply.trim().length < 5) {
+        errors.push(
+          `tweet ${tweet.tweet_id}: reply too short after sanitize`
+        );
         continue;
       }
     } catch (e) {
@@ -228,6 +305,7 @@ export async function runDiscoverPosts(opts: {
       continue;
     }
 
+    engagedToday.add(authorKey);
     inserted++;
   }
 
@@ -239,8 +317,26 @@ export async function runDiscoverPosts(opts: {
   }
   if (skippedOffPlatformCta > 0) {
     console.log(
-      "[discover-runner] skipped off-platform / join CTA tweets:",
+      "[discover-runner] skipped off-platform / sales / funnel CTA tweets:",
       skippedOffPlatformCta
+    );
+  }
+  if (skippedGrokAuthor > 0) {
+    console.log(
+      "[discover-runner] skipped tweets authored by @grok:",
+      skippedGrokAuthor
+    );
+  }
+  if (skippedSelf > 0) {
+    console.log(
+      "[discover-runner] skipped own / self-mentioned tweets:",
+      skippedSelf
+    );
+  }
+  if (skippedDuplicateAuthorToday > 0) {
+    console.log(
+      "[discover-runner] skipped duplicate author (already engaged today IST):",
+      skippedDuplicateAuthorToday
     );
   }
 

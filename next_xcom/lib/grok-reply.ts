@@ -17,9 +17,39 @@ Rules:
 - Maximum 280 characters.
 - Sound 100% human – never robotic, never salesy.
 - Match the energy of the original post.
-- Never use emojis unless the original post does.
+- Never use emojis unless the original post does. If you skip emojis, do so silently — never explain that choice.
+- Output **only** the final reply text: one message, as if posting it on X. No meta-commentary, no stage directions, no parenthetical asides, no drafts, no alternatives, no self-corrections (e.g. do not write "Actually," or "(Wait, …)" or notes about rules).
+- Never append counts or labels such as "(128 chars)", character counts, word counts, or "under N characters" — the reader should not see any length metadata.
 - Your niche is tech / indie builders / SaaS / remote dev. If the post is clearly **off-topic** for that niche (e.g. hard news, geopolitics, war, elections, general politics) and not about products, code, careers, or creator/builder culture, do **not** debate the topic. Reply with **one short line** politely declining to engage on that subject (under 280 chars), or a neutral pivot to a related builder angle only if it fits naturally. Never take partisan positions.
 - If the post is mainly a **sales or community funnel** (e.g. asking people to join Telegram, Discord, WhatsApp, a newsletter, a waitlist, or to leave X for another app), or it pushes constant off-platform action, do **not** play along or promote those channels. Reply with **one short line** that you are passing / not engaging with off-platform CTAs (under 280 chars). Do not ask follow-up questions that invite DMs or signups.`;
+}
+
+/** Strip parenthetical LLM "thinking" if the model ignores prompt constraints. */
+export function sanitizeReplyDraft(text: string): string {
+  const metaInner =
+    /\b(wait|no emoji|no emojis|emojis|original|skip|neutral|note:|i'll|i will|stay neutral|thinking)\b/i;
+  let out = text;
+  for (let i = 0; i < 20; i++) {
+    const next = out.replace(/\([^()]*\)/g, (full) => {
+      const inner = full.slice(1, -1);
+      if (/^\d+\s*(chars?|characters?)$/i.test(inner.trim())) return " ";
+      return metaInner.test(inner) ? " " : full;
+    });
+    if (next === out) break;
+    out = next;
+  }
+  for (let i = 0; i < 5; i++) {
+    const next = out
+      .replace(/\s*\(\d+\s*(chars?|characters?)\)\s*$/i, "")
+      .trim();
+    if (next === out) break;
+    out = next;
+  }
+  out = out.replace(/\s+/g, " ").trim();
+  if (out.length > 280) {
+    out = out.slice(0, 280).trim();
+  }
+  return out;
 }
 
 /**
@@ -28,7 +58,7 @@ Rules:
 export async function generateReplyForPost(originalPostText: string) {
   const model =
     process.env.X_ENGAGER_GROK_MODEL?.trim() || "grok-3-mini";
-  return generateText(
+  const raw = await generateText(
     `Original post (reply to this):\n\n"""${originalPostText.replace(/"""/g, '"')}"""`,
     {
       model,
@@ -37,4 +67,56 @@ export async function generateReplyForPost(originalPostText: string) {
       systemPrompt: buildReplySystemPrompt(),
     }
   );
+  return {
+    ...raw,
+    text: sanitizeReplyDraft(raw.text),
+  };
+}
+
+export type InboundReplyContextPayload = {
+  /** @username of the person who @mentioned you */
+  mentionAuthor: string;
+  /** Text of their tweet (the mention) */
+  mentionText: string;
+  /** Parent tweet they replied to, if any */
+  parentTweetText?: string;
+  /** Optional extra thread lines (oldest first) */
+  threadSummary?: string;
+};
+
+/**
+ * Grok draft for replying to someone who @mentioned you (reply thread or standalone mention).
+ */
+export async function generateReplyForInboundContext(ctx: InboundReplyContextPayload) {
+  const model =
+    process.env.X_ENGAGER_GROK_MODEL?.trim() || "grok-3-mini";
+  const parts = [
+    `Someone (@${ctx.mentionAuthor.replace(/^@/, "")}) mentioned you on X.`,
+    "",
+    `Their tweet:\n"""${ctx.mentionText.replace(/"""/g, '"')}"""`,
+  ];
+  if (ctx.parentTweetText?.trim()) {
+    parts.push(
+      "",
+      `Tweet they were replying to (context):\n"""${ctx.parentTweetText.replace(/"""/g, '"')}"""`,
+    );
+  }
+  if (ctx.threadSummary?.trim()) {
+    parts.push("", `More thread context:\n${ctx.threadSummary.trim()}`);
+  }
+  parts.push(
+    "",
+    "Write ONE reply (as you) that responds naturally to them. Reference something specific they said."
+  );
+  const userPrompt = parts.join("\n");
+  const raw = await generateText(userPrompt, {
+    model,
+    maxTokens: 320,
+    temperature: 0.75,
+    systemPrompt: buildReplySystemPrompt(),
+  });
+  return {
+    ...raw,
+    text: sanitizeReplyDraft(raw.text),
+  };
 }
