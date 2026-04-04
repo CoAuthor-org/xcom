@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { loadEnv } from "./env";
+import { applyPromptMentions } from "./prompt-mentions";
 
 loadEnv();
 
@@ -114,7 +115,7 @@ const ONE_POST_INSTRUCTION =
   "\n\nOutput exactly ONE post only. No second post, no \"Post 2\", no numbering. Your post MUST be 280 characters or fewer. Complete the full sentence within that limit—never output a cut-off or incomplete sentence. Nothing else.";
 
 const POLL_INSTRUCTION =
-  "\n\nOutput exactly ONE X (Twitter) poll. Use this format only—no other text:\nQuestion: <poll question, max 280 characters>\nOptions:\n- <Option 1, max 25 characters>\n- <Option 2, max 25 characters>\n- <Option 3, max 25 characters, optional>\n- <Option 4, max 25 characters, optional>\nYou MUST provide at least 2 options and at most 4. Each option label MUST be 25 characters or fewer. The question must be engaging and drawn from the notes. No explanations, no hashtags in options.";
+  "\n\nOutput exactly ONE X (Twitter) poll. Use this format only—no other text:\nQuestion: <poll question, max 280 characters>\nOptions:\n- <Option 1, max 25 characters>\n- <Option 2, max 25 characters>\n- <Option 3, max 25 characters, optional>\n- <Option 4, max 25 characters, optional>\nYou MUST provide at least 2 options and at most 4. Each option label MUST be 25 characters or fewer. The question must be engaging and drawn from the notes. The question MUST include 1–2 hashtags (prefer inline in the sentence; if awkward, at the end). Never 0 or 3+ hashtags in the question. No hashtags in options. No explanations.";
 
 function stripAttachPlaceholders(s: string): string {
   if (!s || typeof s !== "string") return s;
@@ -142,6 +143,7 @@ function trimToLimit(s: string, limit = 280): string {
 
 export { stripAttachPlaceholders };
 export { trimToLimit as trimToTweetLength };
+export { applyPromptMentions } from "./prompt-mentions";
 
 interface ParsedTweet {
   text: string;
@@ -164,15 +166,19 @@ function parseNotesToTweetsOutput(raw: string): ParsedTweet[] {
     let topicRef: string | null = null;
     let part: number | null = null;
     if (post1Match) {
-      text = trimToLimit(stripAttachPlaceholders(post1Match[2].trim()));
+      text = trimToLimit(
+        applyPromptMentions(stripAttachPlaceholders(post1Match[2].trim()))
+      );
       topicRef = topicFrom(post1Match);
       part = 1;
     } else if (post2Match) {
-      text = trimToLimit(stripAttachPlaceholders(post2Match[2].trim()));
+      text = trimToLimit(
+        applyPromptMentions(stripAttachPlaceholders(post2Match[2].trim()))
+      );
       topicRef = topicFrom(post2Match);
       part = 2;
     } else {
-      text = trimToLimit(stripAttachPlaceholders(line));
+      text = trimToLimit(applyPromptMentions(stripAttachPlaceholders(line)));
     }
     if (text.length > 0) {
       const looksLikeHeading =
@@ -210,7 +216,10 @@ function parseNotesToPollOutput(raw: string): ParsedPoll | null {
     const optionsHeaderMatch = line.match(/^Options\s*:?\s*$/i);
     const dashOptMatch = line.match(/^-\s*(.*)/);
     if (qMatch) {
-      question = trimToLimit(stripAttachPlaceholders(qMatch[1].trim()), 280);
+      question = trimToLimit(
+        applyPromptMentions(stripAttachPlaceholders(qMatch[1].trim())),
+        280
+      );
       inDashOptions = false;
     } else if (optionsHeaderMatch) {
       inDashOptions = true;
@@ -278,7 +287,9 @@ function parseNotesToThreadsOutput(raw: string): string[] {
   for (const line of lines) {
     const match = line.match(/^\d+\/\s*(.+)$/);
     if (match) {
-      let text = stripAttachPlaceholders(match[1].trim());
+      let text = applyPromptMentions(
+        stripAttachPlaceholders(match[1].trim())
+      );
       text = trimToLimit(text, 280);
       if (text.length > 0) posts.push(text);
     }

@@ -41,10 +41,11 @@ HARD RULES — BREAK ANY SINGLE ONE AND THE OUTPUT IS INVALID (these are non-neg
    4.4 Penultimate post (SUMMARY): 3–4 bullet takeaway recap of the main value from the notes only
    4.5 Final post (CTA): Strong low-friction engagement prompt that drives replies + bookmarks + reposts + profile visits (example: “Bookmark this if you’re building SaaS. What should I break down next? Reply below 👇”)
 
-5. Hashtag rules:
-   5.1 Exactly 1–3 inline hashtags total across the entire thread
-   5.2 Place them naturally where the topic appears (example: “in #CursorAI” or “for #AgenticSaaS”)
-   5.3 Never dump at the end of any post, never more than one per post
+5. Hashtag rules (every numbered post 1/ … N/ is a separate “post”):
+   5.1 **Each** post MUST contain **at least 1 and at most 2** hashtags (count #tokens in that post only).
+   5.2 **Prefer inline** in the sentence where the topic appears, e.g. “swapped pieces in #IndieStack?” or “running my SaaS on #multiagent workflows”.
+   5.3 If inline would be awkward for that post, put **1–2 hashtags at the end** of that post instead—never skip hashtags on any post.
+   5.4 Never use **three or more** hashtags in a single post.
 
 6. Hook rules (non-negotiable):
    6.1 First 8–12 words of post 1 must create immediate “this is exactly my pain right now” recognition or intense curiosity
@@ -63,7 +64,7 @@ ANTI-HALLUCINATION & QUALITY CONTROL CHECKLIST (run this mentally before every o
 6. Does the summary post recap the exact value without any repetition?
 7. Does the final CTA drive replies, reposts, bookmarks, and profile visits?
 8. Are all posts ≤280 characters and end on complete sentences?
-9. Are there exactly 1–3 inline hashtags placed naturally?
+9. Does **every** post include 1–2 hashtags (prefer inline; end-of-post OK), and none have 3+?
 10. Would a remote SDE repost this thread to their own followers?
 11. Is there zero fluff or filler anywhere in the entire thread?
 12. Does it position the account as the go-to helpful voice in remote dev + AI SaaS?
@@ -93,7 +94,7 @@ EXAMPLES OF PERFECT OUTPUTS (study structure and quality only — never copy con
 Example 1:
 1/ The one Cursor trick that 3x’d my agentic coding speed (and it’s not what you think) Thread:
 2/ Most people think agentic mode is just “let the AI do everything”...
-3/ But the real power is combining it with custom rulesets for your exact SaaS stack in #CursorAI
+3/ But the real power is combining it with custom rulesets for your exact SaaS stack in #CursorAI—here's the setup that cut my regressions in half. #AgenticSaaS
 ...
 
 Example 2:
@@ -112,7 +113,7 @@ DO NOT include any of the following in the output under any circumstance:
 - Image placeholders
 - “Here’s your thread”
 - Any explanation text
-- Extra hashtags
+- Any post with zero hashtags or with three or more hashtags
 - Truncated sentences
 - Any reference to days of the week, calendar, or themes
 - Any mention of the prompt itself

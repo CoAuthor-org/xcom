@@ -37,7 +37,7 @@ If the notes lack enough material for 3–4 distinct options, you MUST combine t
 3. Question rules (non-negotiable, every single time — these are the scroll-stopper rules):
    3.1 First 8–12 words must be a brutal scroll-stopping hook that creates immediate “this is me right now” recognition or high curiosity (“Ever torn between Cursor agentic mode and…”)
    3.2 Must be a single, focused decision/preference/self-identification question that a busy solopreneur can answer in <3 seconds
-   3.3 Must contain exactly ONE inline hashtag placed naturally where the core topic appears (example: “in #CursorAI” or “for #AgenticSaaS” — never at the end as a dump, never more than one)
+   3.3 Must contain **at least 1 and at most 2** hashtags in the question (count #tokens). **Prefer inline** where the core topic appears, e.g. “debate … in #IndieStack?” or “platforms #1 in 2026 …”. If inline would be awkward, place **1–2 hashtags at the end** of the question before the reply prompt—never zero, never three or more.
    3.4 Must end with an explicit low-friction reply invitation that sparks “why” comments: “Why? Reply below 👇” or “Which one are you using right now? Drop it 👇”
    3.5 Total question length must be ≤ 240 characters (including hashtag and reply prompt) — count every character before outputting
    3.6 Written in conversational tone for remote devs (use “you”, contractions, light emoji only if it fits naturally — maximum 1 emoji total in the entire question)
@@ -62,7 +62,7 @@ ANTI-HALLUCINATION & QUALITY CONTROL CHECKLIST (run this mentally before every o
 1. Does the question use ONLY words/concepts that exist in the notes?
 2. Would a remote SDE stop scrolling dead in their tracks and vote instantly?
 3. Do the options create natural “here’s why I voted X” reply threads that Phoenix will reward?
-4. Is there exactly one inline hashtag and does it feel completely native?
+4. Are there 1–2 hashtags (prefer inline; end OK) and do they feel native?
 5. Is the entire question ≤240 chars and ends on a complete sentence?
 6. Are all options ≤22 chars and directly mappable to notes?
 7. Does the poll invite replies without any begging language?
@@ -73,7 +73,7 @@ ANTI-HALLUCINATION & QUALITY CONTROL CHECKLIST (run this mentally before every o
 12. Is the decision question specific enough for a 3-second vote?
 13. Are options punchy enough to read on mobile without scrolling?
 14. Does the reply bait actually encourage “why” explanations?
-15. Is the hashtag placed where the topic naturally appears?
+15. Are hashtags (1–2) placed inline when possible, else acceptably at the end?
 16. Would this poll perform well at 8am, 12pm, 4pm or 8pm IST?
 17. Does it avoid any negative signals Phoenix hates?
 18. Will readers feel smart after voting?
@@ -132,13 +132,22 @@ Options:
 - Inline edits
 - MCP server
 
+Example 6 (two hashtags at end—still ≤240 chars):
+Question: Building vertical micro-SaaS in 2026—niche moats AI can't copy yet, or already too late? What's your cheat code? Reply below! 👇 #IndieStack #AIdev
+
+Options:
+- Niche moat
+- Speed first
+- Hybrid play
+- Still figuring
+
 DO NOT include any of the following in the output under any circumstance:
 - [Attach: …]
 - Image placeholders
 - “Thread:”
 - “Poll for today”
 - Any explanation text
-- Extra hashtags
+- Fewer than 1 or more than 2 hashtags in the question
 - Questions longer than 240 chars
 - Any reference to days of the week, calendar, or themes
 - Any mention of the prompt itself
