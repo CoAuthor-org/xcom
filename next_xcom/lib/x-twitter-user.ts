@@ -15,7 +15,8 @@ function envTrim(name: string): string {
  */
 export function getTwitterClientOAuthUser(): TwitterApi | null {
   const appKey = envTrim("X_API_KEY");
-  const appSecret = envTrim("X_API_SECRET");
+  const appSecret =
+    envTrim("X_API_SECRET") || envTrim("x_API_SECRET");
   const accessToken = envTrim("X_ACCESS_TOKEN");
   const accessSecret = envTrim("X_ACCESS_TOKEN_SECRET");
   if (appKey && appSecret && accessToken && accessSecret) {

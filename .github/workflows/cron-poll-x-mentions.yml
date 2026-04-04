@@ -26,12 +26,19 @@ jobs:
             exit 1
           fi
           BASE="${RAW%/}"
+          AUTH_HEADER=()
           if [ -n "$CRON_SECRET" ]; then
-            curl -sS -f -X POST "$BASE/api/cron/poll-mentions" \
-              -H "Authorization: Bearer $CRON_SECRET" \
-              -H "Accept: application/json"
+            AUTH_HEADER=(-H "Authorization: Bearer $CRON_SECRET")
           else
-            echo "Warning: CRON_SECRET empty — only safe on private networks. Set CRON_SECRET to match the server env."
-            curl -sS -f -X POST "$BASE/api/cron/poll-mentions" \
-              -H "Accept: application/json"
+            echo "::warning::CRON_SECRET is empty in GitHub secrets. Add it (same value as Vercel) so only authorized callers can hit the cron route."
+          fi
+          HTTP=$(curl -sS -o /tmp/poll_mentions_body -w "%{http_code}" -X POST "$BASE/api/cron/poll-mentions" \
+            "${AUTH_HEADER[@]}" \
+            -H "Accept: application/json")
+          echo "HTTP $HTTP"
+          cat /tmp/poll_mentions_body
+          echo ""
+          if [ "$HTTP" != "200" ]; then
+            echo "::error::poll-mentions failed. A 503 JSON body usually means Vercel is missing env: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY, or XAI_API_KEY/GROK_API_KEY, or X OAuth (X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET) for mentions."
+            exit 1
           fi

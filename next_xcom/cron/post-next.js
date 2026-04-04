@@ -42,7 +42,7 @@ function getScheduleSlot() {
 const supabaseUrl = env('SUPABASE_URL');
 const supabaseServiceKey = env('SUPABASE_SERVICE_ROLE_KEY') || env('SUPABASE_SERVICE_KEY');
 const xApiKey = env('X_API_KEY');
-const xApiSecret = env('X_API_SECRET');
+const xApiSecret = env('X_API_SECRET') || env('x_API_SECRET');
 const xAccessToken = env('X_ACCESS_TOKEN');
 const xAccessSecret = env('X_ACCESS_TOKEN_SECRET');
 
