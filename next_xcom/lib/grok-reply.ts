@@ -1,3 +1,4 @@
+import { loadEngagerProfileForPrompt } from "./engager-profile";
 import { loadEnv } from "./env";
 import { generateText } from "./llm";
 
@@ -10,7 +11,12 @@ export function buildReplySystemPrompt(): string {
   const name =
     process.env.X_ENGAGER_BRAND_NAME?.trim() || DEFAULT_BRAND;
   const tone = process.env.X_ENGAGER_TONE?.trim() || DEFAULT_TONE;
-  return `You are ${name}. Your tone is ${tone}.
+  const profile = loadEngagerProfileForPrompt();
+  const profileBlock =
+    profile.length > 0
+      ? `\n\n---\nWriter profile (use this to stay on-voice and accurate to this person; do not quote the file verbatim—embody it):\n${profile}\n---\n`
+      : "";
+  return `You are ${name}. Your tone is ${tone}.${profileBlock}
 Rules:
 - Always reference something specific from the original post.
 - Add real value or ask a genuine question.
