@@ -112,44 +112,68 @@
 }
 
 .x-engager-tabs {
-  display: flex;
+  display: inline-flex;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: var(--neo-inset-sm);
 }
 
 .x-engager-tab {
-  all: unset;
   cursor: pointer;
-  padding: 10px 18px;
-  border-radius: 100px;
+  padding: 8px 14px;
+  border-radius: 10px;
   font-size: 0.9rem;
   font-weight: 600;
-  background: var(--neo-bg);
-  box-shadow: var(--neo-raised);
+  background: transparent;
+  box-shadow: none;
   color: var(--neo-text-muted);
-  transition: box-shadow 0.2s, transform 0.2s;
+  transition: box-shadow 0.2s, transform 0.2s, color 0.2s;
 }
 
 .x-engager-tab:hover {
-  box-shadow: var(--neo-inset-sm);
-  transform: scale(0.98);
+  color: var(--neo-text);
 }
 
-.x-engager-tab.active {
+.x-engager-tab.active,
+.x-engager-tab[data-state="active"] {
   color: var(--neo-accent);
-  box-shadow: var(--neo-inset-sm);
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
 }
 
-.x-engager-subtabs {
-  display: flex;
-  gap: 6px;
-  margin: -4px 0 14px;
+.x-engager-tab-main {
+  min-width: 130px;
+}
+
+.x-engager-subtabs-wrap {
+  margin: 2px 0 14px;
   padding-left: 2px;
 }
 
-.x-engager-subtabs .x-engager-tab {
-  padding: 7px 14px;
-  font-size: 0.82rem;
+.x-engager-subtabs-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--neo-text-muted);
+  margin: 0 0 6px 4px;
+}
+
+.x-engager-subtabs {
+  display: inline-flex;
+  gap: 6px;
+  margin: 0;
+  border-radius: 12px;
+  padding: 4px;
+  box-shadow: var(--neo-inset-sm);
+}
+
+.x-engager-tab-sub {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  min-width: 108px;
 }
 
 .x-engager-inbound-context {

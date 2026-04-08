@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import "./x-engager.css";
 import { QueryBuilderPanel } from "./query-builder-panel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   buildQueryStringFromOptions,
   defaultQueryOptions,
@@ -157,6 +158,7 @@ export function XEngager() {
   const [inboundLoading, setInboundLoading] = React.useState(true);
   const [inboundStatusFilter, setInboundStatusFilter] =
     React.useState<string>("pending_review");
+  const [inboundPollingNow, setInboundPollingNow] = React.useState(false);
   const [clearingInboundAll, setClearingInboundAll] = React.useState(false);
   const [clearingInboundPostedManual, setClearingInboundPostedManual] =
     React.useState(false);
@@ -601,6 +603,30 @@ export function XEngager() {
     updateInboundLocal(id, j.item);
   };
 
+  const pollInboundNow = async () => {
+    setInboundPollingNow(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/cron/poll-mentions", { method: "POST" });
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        inserted?: number;
+      };
+      if (!res.ok) {
+        throw new Error(j.error || "Fetch inbound failed");
+      }
+      await loadInbound();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Fetch inbound failed. If CRON_SECRET is set, this button requires a server-side proxy."
+      );
+    } finally {
+      setInboundPollingNow(false);
+    }
+  };
+
   const clearInboundAll = async () => {
     if (
       !confirm(
@@ -797,46 +823,39 @@ export function XEngager() {
         </p>
       )}
 
-      <div className="x-engager-tabs">
-        <button
-          type="button"
-          className={`x-engager-tab ${tab === "replies" ? "active" : ""}`}
-          onClick={() => setTab("replies")}
-        >
-          Replies
-        </button>
-        <button
-          type="button"
-          className={`x-engager-tab ${tab === "queries" ? "active" : ""}`}
-          onClick={() => setTab("queries")}
-        >
-          Search queries
-        </button>
-      </div>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setTab(v as (typeof XE_MAIN_TABS)[number])}
+      >
+        <TabsList className="x-engager-tabs" aria-label="X Engager main tabs">
+          <TabsTrigger className="x-engager-tab x-engager-tab-main" value="replies">
+            Replies
+          </TabsTrigger>
+          <TabsTrigger className="x-engager-tab x-engager-tab-main" value="queries">
+            Search queries
+          </TabsTrigger>
+        </TabsList>
 
-      {tab === "replies" && (
-        <>
-          <div className="x-engager-subtabs" role="tablist" aria-label="Replies mode">
-            <button
-              type="button"
-              role="tab"
-              className={`x-engager-tab ${repliesSubTab === "outbound" ? "active" : ""}`}
-              onClick={() => setRepliesSubTab("outbound")}
-            >
-              Outbound
-            </button>
-            <button
-              type="button"
-              role="tab"
-              className={`x-engager-tab ${repliesSubTab === "inbound" ? "active" : ""}`}
-              onClick={() => setRepliesSubTab("inbound")}
-            >
-              Inbound
-            </button>
-          </div>
+        <TabsContent value="replies">
+          <Tabs
+            value={repliesSubTab}
+            onValueChange={(v) =>
+              setRepliesSubTab(v as (typeof XE_REPLIES_SUB_TABS)[number])
+            }
+          >
+            <div className="x-engager-subtabs-wrap">
+              <div className="x-engager-subtabs-label">Replies mode</div>
+              <TabsList className="x-engager-subtabs" aria-label="Replies mode">
+                <TabsTrigger className="x-engager-tab x-engager-tab-sub" value="outbound">
+                  Outbound
+                </TabsTrigger>
+                <TabsTrigger className="x-engager-tab x-engager-tab-sub" value="inbound">
+                  Inbound
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-          {repliesSubTab === "outbound" && (
-            <>
+            <TabsContent value="outbound">
               <div className="x-engager-toolbar">
                 <select
                   className="x-engager-select"
@@ -907,11 +926,9 @@ export function XEngager() {
                   ))}
                 </div>
               )}
-            </>
-          )}
+            </TabsContent>
 
-          {repliesSubTab === "inbound" && (
-            <>
+            <TabsContent value="inbound">
               <div className="x-engager-toolbar">
                 <select
                   className="x-engager-select"
@@ -938,6 +955,18 @@ export function XEngager() {
                   }}
                 >
                   Refresh
+                </button>
+                <button
+                  type="button"
+                  className="xe-btn"
+                  disabled={inboundPollingNow}
+                  onClick={() => pollInboundNow()}
+                >
+                  <RefreshCw
+                    size={14}
+                    className={inboundPollingNow ? "animate-spin" : ""}
+                  />
+                  {inboundPollingNow ? "Fetching…" : "Fetch inbound now"}
                 </button>
                 <button
                   type="button"
@@ -1007,13 +1036,11 @@ export function XEngager() {
                   ))}
                 </div>
               )}
-            </>
-          )}
-        </>
-      )}
+            </TabsContent>
+          </Tabs>
+        </TabsContent>
 
-      {tab === "queries" && (
-        <>
+        <TabsContent value="queries">
           <form className="x-engager-queries-form" onSubmit={submitQuery}>
             <div>
               <label htmlFor="qe-name">Name</label>
@@ -1199,8 +1226,8 @@ export function XEngager() {
               </table>
             </div>
           )}
-        </>
-      )}
+        </TabsContent>
+      </Tabs>
 
       {generateModalOpen && (
         <div
