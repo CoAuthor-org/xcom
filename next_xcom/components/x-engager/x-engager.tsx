@@ -156,7 +156,10 @@ export function XEngager() {
   );
   const [inboundLoading, setInboundLoading] = React.useState(true);
   const [inboundStatusFilter, setInboundStatusFilter] =
-    React.useState<string>("");
+    React.useState<string>("pending_review");
+  const [clearingInboundAll, setClearingInboundAll] = React.useState(false);
+  const [clearingInboundPostedManual, setClearingInboundPostedManual] =
+    React.useState(false);
 
   const loadReplies = React.useCallback(async () => {
     setError(null);
@@ -598,6 +601,64 @@ export function XEngager() {
     updateInboundLocal(id, j.item);
   };
 
+  const clearInboundAll = async () => {
+    if (
+      !confirm(
+        "Delete all inbound replies? This clears the inbound list only (outbound is not affected)."
+      )
+    ) {
+      return;
+    }
+    setClearingInboundAll(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/inbound-replies?bulk=all", {
+        method: "DELETE",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        deleted?: number;
+      };
+      if (!res.ok) {
+        throw new Error(j.error || "Delete failed");
+      }
+      await loadInbound();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Clear failed");
+    } finally {
+      setClearingInboundAll(false);
+    }
+  };
+
+  const clearInboundPostedManual = async () => {
+    if (
+      !confirm(
+        "Delete inbound replies with status Posted or Manual? Outbound replies are not affected."
+      )
+    ) {
+      return;
+    }
+    setClearingInboundPostedManual(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/inbound-replies?bulk=posted_manual", {
+        method: "DELETE",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        deleted?: number;
+      };
+      if (!res.ok) {
+        throw new Error(j.error || "Delete failed");
+      }
+      await loadInbound();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Clear failed");
+    } finally {
+      setClearingInboundPostedManual(false);
+    }
+  };
+
   const submitQuery = async (e: React.FormEvent) => {
     e.preventDefault();
     const qs = builderActive
@@ -877,6 +938,24 @@ export function XEngager() {
                   }}
                 >
                   Refresh
+                </button>
+                <button
+                  type="button"
+                  className="xe-btn danger"
+                  disabled={clearingInboundPostedManual}
+                  onClick={() => clearInboundPostedManual()}
+                >
+                  {clearingInboundPostedManual
+                    ? "Clearing…"
+                    : "Clear posted and manual"}
+                </button>
+                <button
+                  type="button"
+                  className="xe-btn danger"
+                  disabled={clearingInboundAll}
+                  onClick={() => clearInboundAll()}
+                >
+                  {clearingInboundAll ? "Clearing…" : "Clear all"}
                 </button>
               </div>
               {inboundMeta?.lastMentionsPollAt && (

@@ -78,3 +78,50 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: errMsg }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  const err = requireSupabaseStorage();
+  if (err) {
+    return NextResponse.json({ error: err.error }, { status: 503 });
+  }
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  }
+
+  const url = new URL(request.url);
+  const bulk = (url.searchParams.get("bulk") || "").trim();
+
+  try {
+    if (bulk === "all") {
+      const { error: delErr, count } = await supabase
+        .from("inbound_reply_queue")
+        .delete({ count: "exact" })
+        .not("id", "is", null);
+      if (delErr) throw delErr;
+      return NextResponse.json({ deleted: count ?? 0, mode: "all" });
+    }
+
+    if (bulk === "posted_manual") {
+      const { error: delErr, count } = await supabase
+        .from("inbound_reply_queue")
+        .delete({ count: "exact" })
+        .in("status", ["posted", "manual"]);
+      if (delErr) throw delErr;
+      return NextResponse.json({ deleted: count ?? 0, mode: "posted_manual" });
+    }
+
+    return NextResponse.json(
+      {
+        error:
+          "Invalid bulk mode. Use bulk=all or bulk=posted_manual.",
+      },
+      { status: 400 }
+    );
+  } catch (e) {
+    const errMsg = formatSupabaseError(
+      e as Parameters<typeof formatSupabaseError>[0]
+    );
+    console.error("DELETE /api/inbound-replies:", errMsg);
+    return NextResponse.json({ error: errMsg }, { status: 500 });
+  }
+}
