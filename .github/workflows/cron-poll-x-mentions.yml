@@ -1,11 +1,9 @@
 # X Engager inbound: poll user @mentions and enqueue Grok drafts (OAuth user context required on the server).
 # Vercel Hobby often allows only two crons; this workflow avoids a third Vercel cron slot.
+# PAUSED: Project on hold — restore `schedule` + cron lines below when resuming.
 name: Poll X mentions (inbound)
 
 on:
-  schedule:
-    # Every 15 minutes UTC (tighten to */5 * * * * if you need faster pickup and have Actions budget)
-    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 jobs:

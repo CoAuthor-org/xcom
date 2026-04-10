@@ -1,9 +1,8 @@
 # Post next tweet from 12pm queue. Scheduled 1h early (11am IST) to absorb GitHub Actions delay.
+# PAUSED: Project on hold — restore `schedule` + cron line below when resuming.
 name: Cron post 12pm
 
 on:
-  schedule:
-    - cron: '30 5 * * *'   # 05:30 UTC = 11:00am IST (buffer for ~60min delay → actual run ~12pm)
   workflow_dispatch:
 
 env:
