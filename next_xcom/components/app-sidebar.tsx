@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { PenSquare, FileText, MessageCircle, Radar } from "lucide-react";
+import { PenSquare, FileText, MessageCircle, Radar, Newspaper } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -14,7 +14,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-export type NavItemId = "xposter" | "blogposter" | "xengager" | "scouter";
+export type NavItemId = "xposter" | "blogposter" | "xengager" | "scouter" | "newsletters";
 
 /** For localStorage restore; order matches sidebar. */
 export const NAV_ITEM_IDS: readonly NavItemId[] = [
@@ -22,6 +22,7 @@ export const NAV_ITEM_IDS: readonly NavItemId[] = [
   "blogposter",
   "xengager",
   "scouter",
+  "newsletters",
 ];
 
 const NAV_ITEMS: { id: NavItemId; label: string; icon: React.ElementType }[] = [
@@ -29,6 +30,7 @@ const NAV_ITEMS: { id: NavItemId; label: string; icon: React.ElementType }[] = [
   { id: "blogposter", label: "Blog Poster", icon: FileText },
   { id: "xengager", label: "X Engager", icon: MessageCircle },
   { id: "scouter", label: "Scouter", icon: Radar },
+  { id: "newsletters", label: "Newsletters", icon: Newspaper },
 ];
 
 export function AppSidebar({

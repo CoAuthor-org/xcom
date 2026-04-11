@@ -12,6 +12,7 @@ import { XPoster } from "@/components/xposter/xposter";
 import { BlogPoster } from "@/components/blog-poster/blog-poster";
 import { XEngager } from "@/components/x-engager/x-engager";
 import { ScouterDashboard } from "@/components/scouter/scouter-dashboard";
+import { Newsletters } from "@/components/newsletters/newsletters";
 
 export default function Home() {
   const [activeId, setActiveId] = useLocalStorageStringState<NavItemId>(
@@ -32,6 +33,7 @@ export default function Home() {
           {activeId === "blogposter" && <BlogPoster />}
           {activeId === "xengager" && <XEngager />}
           {activeId === "scouter" && <ScouterDashboard />}
+          {activeId === "newsletters" && <Newsletters />}
         </div>
       </SidebarInset>
     </SidebarProvider>
