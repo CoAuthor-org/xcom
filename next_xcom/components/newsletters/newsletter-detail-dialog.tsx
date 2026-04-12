@@ -24,6 +24,8 @@ export function NewsletterDetailDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const legacyAi = Boolean(row?.tldr || row?.summary_markdown);
+
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <DialogPrimitive.Portal>
@@ -46,7 +48,7 @@ export function NewsletterDetailDialog({
             </DialogPrimitive.Close>
           </div>
           <DialogPrimitive.Description className="sr-only">
-            Full newsletter summary and original email text
+            Original newsletter email
           </DialogPrimitive.Description>
 
           <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 text-sm text-[#444]">
@@ -71,28 +73,20 @@ export function NewsletterDetailDialog({
                     </a>
                   </p>
                 )}
-                {row.tldr && (
-                  <div>
-                    <p className="font-medium text-[#2d2d2d]">TL;DR</p>
-                    <p className="mt-1 leading-relaxed">{row.tldr}</p>
+                {legacyAi && (
+                  <div className="rounded-md border border-[#ccc] bg-[#f0f0f0] p-2 text-xs text-[#555]">
+                    <p className="font-medium text-[#2d2d2d]">Legacy per-email AI summary</p>
+                    {row.tldr && <p className="mt-1">{row.tldr}</p>}
+                    {row.summary_markdown && (
+                      <div className="mt-1">
+                        <SimpleMarkdown source={row.summary_markdown} />
+                      </div>
+                    )}
                   </div>
-                )}
-                {row.summary_markdown && (
-                  <div>
-                    <p className="font-medium text-[#2d2d2d]">Summary</p>
-                    <div className="mt-1">
-                      <SimpleMarkdown source={row.summary_markdown} />
-                    </div>
-                  </div>
-                )}
-                {row.summary_status === "error" && row.summary_error && (
-                  <p className="rounded-md border border-amber-600/40 bg-amber-50/80 px-2 py-1 text-amber-900">
-                    Summary failed: {row.summary_error}
-                  </p>
                 )}
                 <div>
                   <p className="font-medium text-[#2d2d2d]">Full text</p>
-                  <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-[#ccc] bg-[#f4f4f4] p-2 text-xs text-[#333] sm:text-sm">
+                  <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-[#ccc] bg-[#f4f4f4] p-2 text-xs text-[#333] sm:text-sm">
                     {row.raw_text || "—"}
                   </pre>
                 </div>

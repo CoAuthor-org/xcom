@@ -1,4 +1,4 @@
-export type NewsletterSummaryStatus = "pending" | "ok" | "error";
+export type NewsletterSummaryStatus = "pending" | "ok" | "error" | "collected";
 
 export interface NewsletterEmailRow {
   id: string;
@@ -17,6 +17,7 @@ export interface NewsletterEmailRow {
   summary_error: string | null;
   starred: boolean;
   unnecessary: boolean;
+  batch_digest_id: string | null;
 }
 
 export interface NewsletterListItem {
@@ -25,9 +26,18 @@ export interface NewsletterListItem {
   received_at: string | null;
   subject: string;
   from_address: string;
-  tldr: string | null;
   starred: boolean;
   unnecessary: boolean;
-  summary_status: NewsletterSummaryStatus;
   link_primary: string | null;
+  batch_digest_id: string | null;
+}
+
+export interface NewsletterDigestRow {
+  id: string;
+  created_at: string;
+  period_start: string;
+  period_end: string;
+  tldr: string;
+  summary_markdown: string;
+  email_count: number;
 }

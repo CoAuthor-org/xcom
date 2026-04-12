@@ -1,0 +1,26 @@
+# Daily batch digest: summarizes newsletter emails from the last 24h (1:00 UTC).
+# Set DEPLOYMENT_BASE_URL (no trailing slash) and CRON_SECRET (same as app).
+# For 1:00 IST (Asia/Kolkata), change cron to: "30 19 * * *" (previous calendar day 19:30 UTC).
+name: Newsletters digest (24h batch)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 1 * * *"
+
+jobs:
+  summarize-newsletters:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run batch newsletter summarization
+        env:
+          BASE: ${{ secrets.DEPLOYMENT_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$BASE" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Skip: set DEPLOYMENT_BASE_URL and CRON_SECRET repository secrets."
+            exit 0
+          fi
+          curl -fsS -X POST "${BASE}/api/cron/newsletters-summarize" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "Accept: application/json"

@@ -4,14 +4,17 @@ import {
   findNewsletterByExternalId,
   insertNewsletterEmail,
   newslettersDbAvailable,
-  updateNewsletterSummary,
-  updateNewsletterSummaryError,
 } from "@/lib/newsletters/db";
 import type { NewsletterWebhookBody } from "@/lib/newsletters/ingest";
 import { normalizeNewsletterPayload } from "@/lib/newsletters/ingest";
-import { isNewsletterLlmEnabled, summarizeNewsletterEmail } from "@/lib/newsletters/summarize";
 import { verifyNewslettersWebhook } from "@/lib/newsletters/webhook-auth";
 
+/**
+ * Zapier JSON: Subject, TextBody, HtmlBody, From / FromFull.Email, MessageId / external_id,
+ * Link / ThreadUrl, links, ReceivedAt — see lib/newsletters/ingest.ts
+ *
+ * Ingest only stores the email; batch summarization runs on a schedule or via UI/cron.
+ */
 export async function POST(request: Request) {
   if (!verifyNewslettersWebhook(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -53,9 +56,8 @@ export async function POST(request: Request) {
     }
   }
 
-  let row;
   try {
-    row = await insertNewsletterEmail({
+    const row = await insertNewsletterEmail({
       received_at: normalized.received_at,
       external_id: normalized.external_id,
       subject: normalized.subject,
@@ -64,6 +66,10 @@ export async function POST(request: Request) {
       raw_html: normalized.raw_html,
       link_primary: normalized.link_primary,
       links: normalized.links,
+    });
+    return NextResponse.json({
+      status: "stored",
+      id: row.id,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -80,46 +86,5 @@ export async function POST(request: Request) {
       return NextResponse.json({ status: "duplicate" }, { status: 200 });
     }
     return NextResponse.json({ error: msg }, { status: 500 });
-  }
-
-  if (!isNewsletterLlmEnabled()) {
-    await updateNewsletterSummaryError(
-      row.id,
-      "Grok not configured (set XAI_API_KEY or GROK_API_KEY)"
-    );
-    return NextResponse.json({
-      status: "stored",
-      id: row.id,
-      summarized: false,
-    });
-  }
-
-  try {
-    const { tldr, summary_markdown } = await summarizeNewsletterEmail({
-      subject: normalized.subject,
-      fromAddress: normalized.from_address,
-      rawText: normalized.raw_text,
-      linkPrimary: normalized.link_primary,
-    });
-    await updateNewsletterSummary(row.id, {
-      tldr,
-      summary_markdown,
-      summary_status: "ok",
-      summary_error: null,
-    });
-    return NextResponse.json({
-      status: "ok",
-      id: row.id,
-      summarized: true,
-    });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    await updateNewsletterSummaryError(row.id, msg);
-    return NextResponse.json({
-      status: "stored",
-      id: row.id,
-      summarized: false,
-      summaryError: msg,
-    });
   }
 }

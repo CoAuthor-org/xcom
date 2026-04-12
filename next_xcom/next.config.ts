@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["edge-tts-universal"],
   async rewrites() {
     return [
       { source: "/notes/files", destination: "/api/notes/files" },

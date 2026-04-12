@@ -4,19 +4,20 @@ import * as React from "react";
 import {
   Loader2,
   Mail,
-  Pause,
-  Play,
   Star,
   Trash2,
   RefreshCw,
   Archive,
   Clock,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
 } from "lucide-react";
 import { NewsletterDetailDialog } from "./newsletter-detail-dialog";
 import { SimpleMarkdown, stripMarkdownForTts } from "./simple-markdown";
-import { useNewsletterTts } from "./use-newsletter-tts";
-import type { NewsletterEmailRow } from "@/lib/newsletters/types";
-import type { NewsletterListItem } from "@/lib/newsletters/types";
+import { DigestTtsPlayer } from "./digest-tts-player";
+import type { NewsletterDigestRow, NewsletterEmailRow, NewsletterListItem } from "@/lib/newsletters/types";
+import { triggerNewsletterDigestSummarizeAction } from "@/app/actions/newsletters-digest";
 
 function formatDate(iso?: string | null): string {
   if (!iso) return "";
@@ -27,6 +28,10 @@ function formatDate(iso?: string | null): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function formatDigestPeriod(start: string, end: string): string {
+  return `${formatDate(start)} → ${formatDate(end)}`;
 }
 
 export function Newsletters() {
@@ -42,14 +47,39 @@ export function Newsletters() {
   const [detailRow, setDetailRow] = React.useState<NewsletterEmailRow | null>(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
   const [actionBusy, setActionBusy] = React.useState<string | null>(null);
+  const [digest, setDigest] = React.useState<NewsletterDigestRow | null>(null);
+  const [pendingInWindow, setPendingInWindow] = React.useState(0);
+  const [digestLoading, setDigestLoading] = React.useState(true);
+  const [digestExpanded, setDigestExpanded] = React.useState(false);
+  const [summarizeBusy, setSummarizeBusy] = React.useState(false);
+  const [digestMessage, setDigestMessage] = React.useState("");
 
-  const { playing, activeTarget, speak, stop } = useNewsletterTts();
+  const digestPlainForTts = React.useMemo(() => {
+    if (!digest) return "";
+    return stripMarkdownForTts(
+      `${digest.tldr}\n${digest.summary_markdown}`
+    ).slice(0, 50_000);
+  }, [digest]);
 
-  React.useEffect(() => {
-    if (!detailOpen && activeTarget === "detail") {
-      stop();
+  const loadDigest = React.useCallback(async () => {
+    setDigestLoading(true);
+    try {
+      const res = await fetch("/api/newsletters/digest/latest");
+      const data = await res.json();
+      if (!res.ok) {
+        setDigest(null);
+        setPendingInWindow(0);
+        return;
+      }
+      setDigest(data.digest ?? null);
+      setPendingInWindow(typeof data.pendingInWindow === "number" ? data.pendingInWindow : 0);
+    } catch {
+      setDigest(null);
+      setPendingInWindow(0);
+    } finally {
+      setDigestLoading(false);
     }
-  }, [detailOpen, activeTarget, stop]);
+  }, []);
 
   const fetchPage = React.useCallback(
     async (offset: number, append: boolean) => {
@@ -93,6 +123,14 @@ export function Newsletters() {
     },
     [limit, starredOnly, includeUnnecessary]
   );
+
+  const refreshAll = React.useCallback(async () => {
+    await Promise.all([loadDigest(), fetchPage(0, false)]);
+  }, [loadDigest, fetchPage]);
+
+  React.useEffect(() => {
+    void loadDigest();
+  }, [loadDigest]);
 
   React.useEffect(() => {
     void fetchPage(0, false);
@@ -138,9 +176,8 @@ export function Newsletters() {
                 ...it,
                 starred: row.starred,
                 unnecessary: row.unnecessary,
-                tldr: row.tldr ?? it.tldr,
-                summary_status: row.summary_status ?? it.summary_status,
                 link_primary: row.link_primary ?? it.link_primary,
+                batch_digest_id: row.batch_digest_id ?? it.batch_digest_id,
               }
             : it
         )
@@ -169,7 +206,7 @@ export function Newsletters() {
         setError(data.error || "Action failed");
         return;
       }
-      await fetchPage(0, false);
+      await refreshAll();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Action failed");
     } finally {
@@ -177,22 +214,27 @@ export function Newsletters() {
     }
   };
 
-  const playSummary = (item: NewsletterListItem) => {
-    const tldrPlain = item.tldr ? stripMarkdownForTts(item.tldr) : "";
-    const parts = [item.subject, tldrPlain].filter(Boolean);
-    if (item.link_primary) parts.push("Link: " + item.link_primary);
-    speak(parts.join(". "), item.id);
-  };
-
-  const playDetailTts = () => {
-    if (!detailRow) return;
-    const md = [detailRow.tldr, detailRow.summary_markdown || ""].filter(Boolean).join("\n");
-    const text =
-      detailRow.subject +
-      ". " +
-      stripMarkdownForTts(md) +
-      (detailRow.link_primary ? ". Link: " + detailRow.link_primary : "");
-    speak(text, "detail");
+  const runSummarizeNow = async () => {
+    setSummarizeBusy(true);
+    setDigestMessage("");
+    setError("");
+    try {
+      const result = await triggerNewsletterDigestSummarizeAction();
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      if (result.skipped) {
+        setDigestMessage(result.message);
+      } else {
+        setDigestMessage(`Digest built from ${result.emailCount} email(s).`);
+      }
+      await refreshAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Summarize failed");
+    } finally {
+      setSummarizeBusy(false);
+    }
   };
 
   const hasMore = items.length < total;
@@ -207,20 +249,24 @@ export function Newsletters() {
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => void fetchPage(0, false)}
-            disabled={loading}
+            onClick={() => void refreshAll()}
+            disabled={loading || digestLoading}
             className="inline-flex items-center gap-1 rounded-lg border border-[#bebebe] bg-[#e0e0e0] px-3 py-2 text-sm font-medium text-[#2d2d2d] shadow-[3px_3px_6px_#bebebe,-2px_-2px_5px_#ffffff] hover:shadow-[inset_2px_2px_5px_#bebebe] disabled:opacity-50 touch-manipulation"
           >
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${loading || digestLoading ? "animate-spin" : ""}`}
+            />
             Refresh
           </button>
         </div>
       </div>
 
       <p className="mb-4 text-sm leading-relaxed text-[#444]">
-        Ingest via Zapier POST to <code className="rounded bg-[#d8d8d8] px-1">/api/webhooks/newsletters</code>{" "}
-        with your secret header. Unstarred items older than one week are removed by the cleanup cron;
-        starred items are kept.
+        New emails are stored only. Once per day (or when you click the button), one digest summarizes every
+        unsummarized email from the last 24 hours. Ingest via Zapier POST to{" "}
+        <code className="rounded bg-[#d8d8d8] px-1">/api/webhooks/newsletters</code>. Unstarred items older
+        than a week are removed by the cleanup cron. Playback uses Edge neural TTS with a live transcript
+        highlight (word timings from the same synthesis).
       </p>
 
       {error && (
@@ -255,8 +301,90 @@ export function Newsletters() {
           />
           Show marked unnecessary
         </label>
-        <span className="text-sm text-[#555] sm:ml-auto">{total} total</span>
+        <span className="text-sm text-[#555] sm:ml-auto">{total} emails</span>
       </div>
+
+      <section
+        className="mb-4 rounded-xl border border-[#bebebe] bg-[#ececec] p-4 shadow-[4px_4px_10px_#bebebe,-3px_-3px_8px_#ffffff]"
+        aria-labelledby="digest-heading"
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 id="digest-heading" className="text-base font-semibold text-[#2d2d2d] sm:text-lg">
+              Latest 24h digest
+            </h2>
+            <p className="mt-1 text-xs text-[#555] sm:text-sm">
+              One AI summary for all emails collected in the ingest window. Pending (not yet in a digest) in
+              the last 24h: <span className="font-medium text-[#2d2d2d]">{pendingInWindow}</span>
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void runSummarizeNow()}
+              disabled={summarizeBusy}
+              className="inline-flex items-center gap-2 rounded-lg border border-[#bebebe] bg-[#2d2d2d] px-3 py-2 text-sm font-medium text-white shadow-md touch-manipulation disabled:opacity-50"
+            >
+              {summarizeBusy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              Build digest now
+            </button>
+          </div>
+        </div>
+
+        {digestMessage && (
+          <p className="mt-3 text-sm text-[#2d6a4f]">{digestMessage}</p>
+        )}
+
+        {digestLoading ? (
+          <div className="mt-4 flex justify-center py-6">
+            <Loader2 className="h-7 w-7 animate-spin text-[#555]" />
+          </div>
+        ) : !digest ? (
+          <p className="mt-4 text-sm text-[#555]">
+            No digest yet. When emails arrive, use &quot;Build digest now&quot; or wait for the daily cron.
+          </p>
+        ) : (
+          <div className="mt-4 space-y-3 border-t border-[#bebebe] pt-4">
+            <p className="text-xs text-[#666]">
+              Generated {formatDate(digest.created_at)} · Window{" "}
+              {formatDigestPeriod(digest.period_start, digest.period_end)} · {digest.email_count} email(s)
+            </p>
+            <div className="rounded-lg border border-[#d0d0d0] bg-[#f6f6f6] p-3 text-sm leading-relaxed text-[#2d2d2d]">
+              <p className="font-medium">TL;DR</p>
+              <p className="mt-1">{digest.tldr}</p>
+            </div>
+            <DigestTtsPlayer
+              digestId={digest.id}
+              plainText={digestPlainForTts}
+              onError={(m) => setError(m)}
+            />
+            <button
+              type="button"
+              onClick={() => setDigestExpanded((e) => !e)}
+              className="inline-flex items-center gap-1 text-sm font-medium text-[#1d4ed8] touch-manipulation"
+            >
+              {digestExpanded ? (
+                <>
+                  <ChevronUp className="h-4 w-4" /> Hide full digest
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4" /> Show full digest
+                </>
+              )}
+            </button>
+            {digestExpanded && (
+              <div className="rounded-lg border border-[#d0d0d0] bg-[#fafafa] p-3">
+                <SimpleMarkdown source={digest.summary_markdown} />
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <button
@@ -287,6 +415,8 @@ export function Newsletters() {
         </button>
       </div>
 
+      <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-[#555]">Inbox</h3>
+
       {loading && items.length === 0 ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-[#555]" />
@@ -304,14 +434,9 @@ export function Newsletters() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-semibold text-[#2d2d2d]">{item.subject}</span>
-                    {item.summary_status === "pending" && (
-                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-900">
-                        Pending
-                      </span>
-                    )}
-                    {item.summary_status === "error" && (
-                      <span className="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-900">
-                        Error
+                    {!item.batch_digest_id && (
+                      <span className="rounded bg-amber-50 px-1.5 py-0.5 text-xs text-amber-900">
+                        Not in digest yet
                       </span>
                     )}
                     {item.unnecessary && (
@@ -321,11 +446,6 @@ export function Newsletters() {
                   <p className="mt-1 truncate text-xs text-[#555] sm:text-sm">
                     {item.from_address} · {formatDate(item.received_at || item.created_at)}
                   </p>
-                  {item.tldr && (
-                    <div className="mt-2 text-sm leading-relaxed text-[#333]">
-                      <SimpleMarkdown source={item.tldr} />
-                    </div>
-                  )}
                   {item.link_primary && (
                     <a
                       href={item.link_primary}
@@ -360,23 +480,6 @@ export function Newsletters() {
                       title="Mark unnecessary"
                     >
                       <Trash2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        playing && activeTarget === item.id ? stop() : playSummary(item)
-                      }
-                      className="rounded-lg border border-[#bebebe] bg-[#e0e0e0] p-2 text-[#2d2d2d] touch-manipulation"
-                      aria-label={
-                        playing && activeTarget === item.id ? "Stop speech" : "Play summary"
-                      }
-                      title="Listen (TTS)"
-                    >
-                      {playing && activeTarget === item.id ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )}
                     </button>
                   </div>
                   <button
@@ -417,25 +520,6 @@ export function Newsletters() {
       {detailOpen && detailLoading && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20">
           <Loader2 className="h-10 w-10 animate-spin text-[#333]" />
-        </div>
-      )}
-
-      {detailRow && detailOpen && !detailLoading && (
-        <div className="fixed bottom-4 left-1/2 z-[55] flex -translate-x-1/2 gap-2 rounded-full border border-[#bebebe] bg-[#e8e8e8] px-3 py-2 shadow-lg sm:bottom-6">
-          <button
-            type="button"
-            onClick={() =>
-              playing && activeTarget === "detail" ? stop() : playDetailTts()
-            }
-            className="inline-flex items-center gap-2 rounded-lg bg-[#2d2d2d] px-4 py-2 text-sm font-medium text-white touch-manipulation"
-          >
-            {playing && activeTarget === "detail" ? (
-              <Pause className="h-4 w-4" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
-            {playing && activeTarget === "detail" ? "Stop" : "Listen"}
-          </button>
         </div>
       )}
     </div>

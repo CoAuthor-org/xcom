@@ -1,7 +1,8 @@
 import { supabase } from "@/lib/supabase";
-import type { NewsletterEmailRow, NewsletterListItem } from "./types";
+import type { NewsletterDigestRow, NewsletterEmailRow, NewsletterListItem } from "./types";
 
 const TABLE = "newsletter_emails";
+const DIGESTS = "newsletter_digests";
 
 export function newslettersDbAvailable(): boolean {
   return Boolean(supabase);
@@ -42,7 +43,7 @@ export async function insertNewsletterEmail(row: {
       raw_html: row.raw_html,
       link_primary: row.link_primary,
       links: row.links,
-      summary_status: "pending",
+      summary_status: "collected",
     })
     .select("*")
     .single();
@@ -136,7 +137,7 @@ export async function listNewsletters(params: {
   let q = supabase
     .from(TABLE)
     .select(
-      "id, created_at, received_at, subject, from_address, tldr, starred, unnecessary, summary_status, link_primary"
+      "id, created_at, received_at, subject, from_address, starred, unnecessary, link_primary, batch_digest_id"
     )
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
@@ -175,4 +176,87 @@ export async function deleteOldUnstarredByEffectiveDate(cutoffIso: string): Prom
   });
   if (error) throw new Error(error.message);
   return typeof data === "number" ? data : Number(data ?? 0);
+}
+
+export async function listEmailsPendingDigestInWindow(
+  periodStartIso: string,
+  periodEndIso: string
+): Promise<NewsletterEmailRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select("*")
+    .is("batch_digest_id", null)
+    .gte("created_at", periodStartIso)
+    .lte("created_at", periodEndIso)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as NewsletterEmailRow[];
+}
+
+export async function countPendingDigestEmailsInWindow(
+  periodStartIso: string,
+  periodEndIso: string
+): Promise<number> {
+  if (!supabase) return 0;
+  const { count, error } = await supabase
+    .from(TABLE)
+    .select("*", { count: "exact", head: true })
+    .is("batch_digest_id", null)
+    .gte("created_at", periodStartIso)
+    .lte("created_at", periodEndIso);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+export async function insertNewsletterDigest(row: {
+  period_start: string;
+  period_end: string;
+  tldr: string;
+  summary_markdown: string;
+  email_count: number;
+}): Promise<NewsletterDigestRow> {
+  if (!supabase) throw new Error("Supabase not configured");
+  const { data, error } = await supabase
+    .from(DIGESTS)
+    .insert({
+      period_start: row.period_start,
+      period_end: row.period_end,
+      tldr: row.tldr,
+      summary_markdown: row.summary_markdown,
+      email_count: row.email_count,
+    })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data as NewsletterDigestRow;
+}
+
+export async function attachEmailsToDigest(emailIds: string[], digestId: string): Promise<void> {
+  if (!supabase) throw new Error("Supabase not configured");
+  if (emailIds.length === 0) return;
+  const { error } = await supabase
+    .from(TABLE)
+    .update({ batch_digest_id: digestId })
+    .in("id", emailIds);
+  if (error) throw new Error(error.message);
+}
+
+export async function getLatestNewsletterDigest(): Promise<NewsletterDigestRow | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from(DIGESTS)
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as NewsletterDigestRow) ?? null;
+}
+
+export async function getNewsletterDigestById(id: string): Promise<NewsletterDigestRow | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.from(DIGESTS).select("*").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as NewsletterDigestRow) ?? null;
 }
