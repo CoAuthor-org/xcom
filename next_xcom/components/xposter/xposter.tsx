@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Copy, Check, Pencil, ImagePlus, ImageOff, Trash2 } from "lucide-react";
 import { NeuCheckbox } from "@/components/ui/neu-checkbox";
+import { useAppSync } from "@/lib/app-sync";
 import "./xposter.css";
 
 const SERVER_UNREACHABLE_MSG =
@@ -109,6 +110,12 @@ export function XPoster() {
     checkLLMStatus();
     loadNotesFiles();
   }, [loadEntries, checkLLMStatus, loadNotesFiles]);
+
+  useAppSync(() => {
+    void loadEntries();
+    void checkLLMStatus();
+    void loadNotesFiles();
+  });
 
   const appendLog = React.useCallback((msg: string, kind: string) => {
     const time = new Date().toLocaleTimeString("en-US", { hour12: false });

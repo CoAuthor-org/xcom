@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Github, LogOut, RefreshCw, Save } from "lucide-react";
 import { NeuCheckbox } from "@/components/ui/neu-checkbox";
+import { useAppSync } from "@/lib/app-sync";
 import "./blog-poster.css";
 
 const ADDITIONAL_TWEAKS_KEY = "blog-poster-additional-tweaks";
@@ -163,6 +164,14 @@ export function BlogPoster() {
       setBlogDbError(null);
     }
   }, [githubStatus?.connected, loadReposAndTracking, loadDrafts]);
+
+  useAppSync(() => {
+    void loadGithubStatus();
+    if (githubStatus?.connected) {
+      void loadReposAndTracking();
+      void loadDrafts();
+    }
+  });
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {

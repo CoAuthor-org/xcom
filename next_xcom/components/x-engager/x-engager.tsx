@@ -23,6 +23,7 @@ import {
   type QueryOptionsV1,
 } from "@/lib/x-query-assembler";
 import { useLocalStorageStringState } from "@/lib/use-local-storage-state";
+import { useAppSync } from "@/lib/app-sync";
 
 const XE_MAIN_TABS = ["replies", "queries"] as const;
 const XE_REPLIES_SUB_TABS = ["outbound", "inbound"] as const;
@@ -259,6 +260,17 @@ export function XEngager() {
       loadInbound();
     }
   }, [tab, repliesSubTab, loadInbound]);
+
+  useAppSync(() => {
+    if (tab === "queries") {
+      void loadQueries();
+      return;
+    }
+    void loadReplies();
+    if (repliesSubTab === "inbound") {
+      void loadInbound();
+    }
+  });
 
   React.useEffect(() => {
     if (builderActive) {

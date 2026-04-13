@@ -10,6 +10,8 @@ import {
   Square,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import type { TimedWord } from "./digest-tts-utils";
 import {
@@ -17,6 +19,7 @@ import {
   buildSentenceRanges,
   jumpSentences,
 } from "./digest-tts-utils";
+import { stripMarkdownForTts } from "./simple-markdown";
 
 function base64ToBlob(b64: string, mime: string): Blob {
   const bin = atob(b64);
@@ -38,10 +41,95 @@ type Props = {
   /** Exact text sent to TTS (used as cache key with digestId). */
   plainText: string;
   digestId: string;
+  tldr: string;
+  summaryMarkdown: string;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onError?: (message: string) => void;
 };
 
-export function DigestTtsPlayer({ plainText, digestId, onError }: Props) {
+type FullDigestBlock = {
+  kind: "heading" | "bullet" | "paragraph" | "spacer";
+  displayText: string;
+  speechText: string;
+};
+
+type LinkSegment = {
+  text: string;
+  href: string | null;
+};
+
+function normalizeDigestDisplayText(input: string): string {
+  return input
+    .replace(/\*\*([^*]+)\*\*/g, "$1")
+    .replace(/__([^_]+)__/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function parseLinkSegments(input: string): LinkSegment[] {
+  const segments: LinkSegment[] = [];
+  const re = /\[([^\]]+)\]\((https?:[^)\s]+)\)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(input))) {
+    if (m.index > last) {
+      segments.push({ text: input.slice(last, m.index), href: null });
+    }
+    segments.push({ text: m[1], href: m[2] });
+    last = m.index + m[0].length;
+  }
+  if (last < input.length) {
+    segments.push({ text: input.slice(last), href: null });
+  }
+  return segments.length > 0 ? segments : [{ text: input, href: null }];
+}
+
+function buildFullDigestBlocks(raw: string): FullDigestBlock[] {
+  const lines = raw.split(/\r?\n/);
+  const blocks: FullDigestBlock[] = [];
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      blocks.push({ kind: "spacer", displayText: "", speechText: "" });
+      continue;
+    }
+    if (/^#{1,6}\s+/.test(trimmed)) {
+      const plain = trimmed.replace(/^#{1,6}\s+/, "").trim();
+      blocks.push({
+        kind: "heading",
+        displayText: normalizeDigestDisplayText(plain),
+        speechText: stripMarkdownForTts(plain),
+      });
+      continue;
+    }
+    if (/^[-*]\s+/.test(trimmed)) {
+      const plain = trimmed.replace(/^[-*]\s+/, "").trim();
+      blocks.push({
+        kind: "bullet",
+        displayText: normalizeDigestDisplayText(plain),
+        speechText: stripMarkdownForTts(plain),
+      });
+      continue;
+    }
+    blocks.push({
+      kind: "paragraph",
+      displayText: normalizeDigestDisplayText(trimmed),
+      speechText: stripMarkdownForTts(trimmed),
+    });
+  }
+  return blocks;
+}
+
+export function DigestTtsPlayer({
+  plainText,
+  digestId,
+  tldr,
+  summaryMarkdown,
+  expanded,
+  onToggleExpanded,
+  onError,
+}: Props) {
   const [loading, setLoading] = React.useState(false);
   const [words, setWords] = React.useState<TimedWord[]>([]);
   const [duration, setDuration] = React.useState(0);
@@ -52,12 +140,24 @@ export function DigestTtsPlayer({ plainText, digestId, onError }: Props) {
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = React.useRef<string | null>(null);
   const loadedKeyRef = React.useRef<string>("");
-  const activeRef = React.useRef<HTMLSpanElement | null>(null);
 
   const sentenceRanges = React.useMemo(() => buildSentenceRanges(words), [words]);
   const wordIdx = React.useMemo(
     () => activeWordIndex(words, currentTime),
     [words, currentTime]
+  );
+  const tldrTokenCount = React.useMemo(() => {
+    const normalized = tldr.replace(/\s+/g, " ").trim();
+    if (!normalized) return 0;
+    return normalized.split(" ").filter(Boolean).length;
+  }, [tldr]);
+  const boundaryIdx = React.useMemo(
+    () => Math.max(0, Math.min(tldrTokenCount, words.length)),
+    [tldrTokenCount, words.length]
+  );
+  const fullDigestBlocks = React.useMemo(
+    () => buildFullDigestBlocks(summaryMarkdown),
+    [summaryMarkdown]
   );
 
   const stopCleanup = React.useCallback(() => {
@@ -83,13 +183,6 @@ export function DigestTtsPlayer({ plainText, digestId, onError }: Props) {
   React.useEffect(() => {
     stopCleanup();
   }, [digestId, stopCleanup]);
-
-  React.useEffect(() => {
-    const el = activeRef.current;
-    if (el && playing) {
-      el.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
-  }, [wordIdx, playing]);
 
   const attachAudio = React.useCallback((audio: HTMLAudioElement) => {
     const onTime = () => setCurrentTime(audio.currentTime);
@@ -249,6 +342,219 @@ export function DigestTtsPlayer({ plainText, digestId, onError }: Props) {
 
   const sliderMax = duration > 0 ? duration : 1;
 
+  const renderWordSlice = React.useCallback(
+    (start: number, end: number, fallbackText: string) => {
+      if (words.length === 0 || end <= start) {
+        return <p className="mt-1 whitespace-pre-wrap break-words">{fallbackText}</p>;
+      }
+      return (
+        <p className="mt-1 whitespace-pre-wrap break-words">
+          {words.slice(start, end).map((w, i) => {
+            const absoluteIdx = start + i;
+            return (
+              <React.Fragment key={`${absoluteIdx}-${w.start}`}>
+                <span
+                  className={
+                    absoluteIdx === wordIdx
+                      ? "rounded bg-amber-200 px-0.5 text-[#1a1a1a] transition-colors"
+                      : undefined
+                  }
+                >
+                  {w.text}
+                </span>{" "}
+              </React.Fragment>
+            );
+          })}
+        </p>
+      );
+    },
+    [words, wordIdx]
+  );
+
+  const renderLinkedText = React.useCallback((input: string, keyPrefix: string) => {
+    const segments = parseLinkSegments(input);
+    return (
+      <>
+        {segments.map((seg, i) => {
+          if (!seg.text.trim()) {
+            return <React.Fragment key={`${keyPrefix}-ws-${i}`}>{seg.text}</React.Fragment>;
+          }
+          if (!seg.href) {
+            return <React.Fragment key={`${keyPrefix}-txt-${i}`}>{seg.text}</React.Fragment>;
+          }
+          return (
+            <a
+              key={`${keyPrefix}-lnk-${i}`}
+              href={seg.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#1d4ed8] underline break-all"
+            >
+              {seg.text}
+            </a>
+          );
+        })}
+      </>
+    );
+  }, []);
+
+  const renderWordSliceWithLinks = React.useCallback(
+    (start: number, end: number, source: string, keyPrefix: string) => {
+      if (words.length === 0 || end <= start) {
+        return (
+          <p className="mt-1 whitespace-pre-wrap break-words">
+            {renderLinkedText(source, `${keyPrefix}-fallback`)}
+          </p>
+        );
+      }
+
+      const parts = parseLinkSegments(source);
+      let local = 0;
+      return (
+        <p className="mt-1 whitespace-pre-wrap break-words">
+          {parts.map((part, partIdx) => {
+            const partSpeech = stripMarkdownForTts(part.text).trim();
+            const tokenCount = partSpeech ? partSpeech.split(/\s+/).filter(Boolean).length : 0;
+            const segStart = local;
+            const segEnd = Math.min(end - start, segStart + tokenCount);
+            local = segEnd;
+            const segmentWords = words.slice(start + segStart, start + segEnd);
+
+            const segmentContent = (
+              <>
+                {segmentWords.map((w, i) => {
+                  const absoluteIdx = start + segStart + i;
+                  return (
+                    <React.Fragment key={`${keyPrefix}-${partIdx}-${absoluteIdx}-${w.start}`}>
+                      <span
+                        className={
+                          absoluteIdx === wordIdx
+                            ? "rounded bg-amber-200 px-0.5 text-[#1a1a1a] transition-colors"
+                            : undefined
+                        }
+                      >
+                        {w.text}
+                      </span>{" "}
+                    </React.Fragment>
+                  );
+                })}
+              </>
+            );
+
+            if (part.href && segmentWords.length > 0) {
+              return (
+                <a
+                  key={`${keyPrefix}-seg-${partIdx}`}
+                  href={part.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#1d4ed8] underline break-all"
+                >
+                  {segmentContent}
+                </a>
+              );
+            }
+            if (part.href) {
+              return (
+                <a
+                  key={`${keyPrefix}-seg-${partIdx}`}
+                  href={part.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#1d4ed8] underline break-all"
+                >
+                  {part.text}{" "}
+                </a>
+              );
+            }
+            if (segmentWords.length > 0) {
+              return <React.Fragment key={`${keyPrefix}-seg-${partIdx}`}>{segmentContent}</React.Fragment>;
+            }
+            return (
+              <React.Fragment key={`${keyPrefix}-seg-${partIdx}`}>
+                {part.text}
+              </React.Fragment>
+            );
+          })}
+        </p>
+      );
+    },
+    [renderLinkedText, wordIdx, words]
+  );
+
+  const renderFullDigest = React.useCallback(() => {
+    if (words.length === 0) {
+      return (
+        <div className="space-y-2">
+          {fullDigestBlocks.map((b, idx) => {
+            if (b.kind === "spacer") return <div key={`sp-${idx}`} className="h-2" />;
+            if (b.kind === "heading") {
+              return (
+                <p key={`h-${idx}`} className="text-sm font-semibold text-[#2d2d2d]">
+                  {renderLinkedText(b.displayText, `h-${idx}`)}
+                </p>
+              );
+            }
+            if (b.kind === "bullet") {
+              return (
+                <p key={`li-${idx}`} className="text-sm text-[#2d2d2d]">
+                  <span className="mr-1">•</span>
+                  {renderLinkedText(b.displayText, `li-${idx}`)}
+                </p>
+              );
+            }
+            return (
+              <p key={`p-${idx}`} className="text-sm text-[#2d2d2d]">
+                {renderLinkedText(b.displayText, `p-${idx}`)}
+              </p>
+            );
+          })}
+        </div>
+      );
+    }
+
+    let cursor = boundaryIdx;
+    return (
+      <div className="space-y-2">
+        {fullDigestBlocks.map((b, idx) => {
+          if (b.kind === "spacer") {
+            return <div key={`sp-${idx}`} className="h-2" />;
+          }
+          const tokenCount = b.speechText
+            ? b.speechText.split(/\s+/).filter(Boolean).length
+            : 0;
+          const start = cursor;
+          const end = Math.min(words.length, start + tokenCount);
+          cursor = end;
+          const textNode = renderWordSlice(start, end, b.displayText);
+
+          if (b.kind === "heading") {
+            return (
+              <div key={`h-${idx}`} className="text-sm font-semibold text-[#2d2d2d]">
+                {renderWordSliceWithLinks(start, end, b.displayText, `h-${idx}`)}
+              </div>
+            );
+          }
+          if (b.kind === "bullet") {
+            return (
+              <div key={`li-${idx}`} className="flex items-start gap-1 text-sm text-[#2d2d2d]">
+                <span className="mt-1">•</span>
+                <div className="min-w-0 flex-1">
+                  {renderWordSliceWithLinks(start, end, b.displayText, `li-${idx}`)}
+                </div>
+              </div>
+            );
+          }
+          return (
+            <div key={`p-${idx}`} className="text-sm text-[#2d2d2d]">
+              {renderWordSliceWithLinks(start, end, b.displayText, `p-${idx}`)}
+            </div>
+          );
+        })}
+      </div>
+    );
+  }, [boundaryIdx, fullDigestBlocks, renderLinkedText, renderWordSliceWithLinks, words]);
+
   return (
     <div className="mt-4 space-y-3 rounded-xl border border-[#c8c8c8] bg-[#f2f2f2] p-3 sm:p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-[#555]">
@@ -357,27 +663,33 @@ export function DigestTtsPlayer({ plainText, digestId, onError }: Props) {
         <span className="tabular-nums">{formatClock(duration)}</span>
       </div>
 
-      {words.length > 0 ? (
-        <div className="max-h-52 overflow-y-auto rounded-lg border border-[#d4d4d4] bg-white p-3 text-sm leading-relaxed text-[#1a1a1a] sm:max-h-64">
-          {words.map((w, i) => (
-            <span
-              key={`${i}-${w.start}`}
-              ref={i === wordIdx ? activeRef : undefined}
-              className={
-                i === wordIdx
-                  ? "rounded bg-amber-200 px-0.5 text-[#1a1a1a] transition-colors"
-                  : undefined
-              }
-            >
-              {w.text}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-[#666]">
-          Word highlights appear after the first successful Play (Edge TTS word boundaries).
-        </p>
-      )}
+      <div className="rounded-lg border border-[#d4d4d4] bg-white p-3 text-sm leading-relaxed text-[#1a1a1a]">
+        <p className="font-medium text-[#2d2d2d]">TL;DR</p>
+        {renderWordSlice(0, boundaryIdx, tldr)}
+
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-[#1d4ed8] touch-manipulation"
+        >
+          {expanded ? (
+            <>
+              <ChevronUp className="h-4 w-4" /> Read less
+            </>
+          ) : (
+            <>
+              <ChevronDown className="h-4 w-4" /> Read more
+            </>
+          )}
+        </button>
+
+        {expanded ? (
+          <div className="mt-3 border-t border-[#e2e2e2] pt-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-[#555]">Full digest</p>
+            <div className="mt-2 text-sm text-[#2d2d2d]">{renderFullDigest()}</div>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

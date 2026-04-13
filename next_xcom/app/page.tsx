@@ -16,6 +16,7 @@ import { BlogPoster } from "@/components/blog-poster/blog-poster";
 import { XEngager } from "@/components/x-engager/x-engager";
 import { ScouterDashboard } from "@/components/scouter/scouter-dashboard";
 import { Newsletters } from "@/components/newsletters/newsletters";
+import { triggerAppSync } from "@/lib/app-sync";
 
 export default function Home() {
   const [activeId, setActiveId] = useLocalStorageStringState<NavItemId>(
@@ -43,6 +44,7 @@ export default function Home() {
                 type="button"
                 onClick={() => {
                   window.dispatchEvent(new Event("newsletters:refresh"));
+                  triggerAppSync();
                 }}
                 className="inline-flex h-9 w-9 items-center justify-center text-[#2d2d2d]"
                 aria-label="Refresh newsletters"

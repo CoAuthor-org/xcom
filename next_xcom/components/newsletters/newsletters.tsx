@@ -14,7 +14,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { NewsletterDetailDialog } from "./newsletter-detail-dialog";
-import { SimpleMarkdown, stripMarkdownForTts } from "./simple-markdown";
+import { stripMarkdownForTts } from "./simple-markdown";
 import { DigestTtsPlayer } from "./digest-tts-player";
 import type {
   NewsletterDigestRow,
@@ -25,6 +25,33 @@ import type {
 import { formatDigestVersionLabel } from "@/lib/newsletters/digest-label";
 import { triggerNewsletterDigestSummarizeAction } from "@/app/actions/newsletters-digest";
 import { NeuCheckbox } from "@/components/ui/neu-checkbox";
+import { useAppSync } from "@/lib/app-sync";
+import { readLocalCache, writeLocalCache } from "@/lib/local-cache";
+
+const NEWSLETTERS_CACHE_VERSION = 1;
+const NEWSLETTERS_CACHE_KEY = "newsletters:cache:v1";
+const DIGESTS_CACHE_KEY = "newsletters:digests:v1";
+const CACHE_MAX_EMAILS = 200;
+
+type NewslettersCachePayload = {
+  version: number;
+  savedAt: string;
+  items: NewsletterListItem[];
+  total: number;
+  filters: {
+    starredOnly: boolean;
+    includeUnnecessary: boolean;
+  };
+};
+
+type DigestsCachePayload = {
+  version: number;
+  savedAt: string;
+  digestSummaries: NewsletterDigestSummary[];
+  pendingInWindow: number;
+  selectedDigestId: string | null;
+  digest: NewsletterDigestRow | null;
+};
 
 function formatDate(iso?: string | null): string {
   if (!iso) return "";
@@ -68,23 +95,27 @@ export function Newsletters() {
   const [digestExpanded, setDigestExpanded] = React.useState(false);
   const [summarizeBusy, setSummarizeBusy] = React.useState(false);
   const [digestMessage, setDigestMessage] = React.useState("");
+  const [isOnline, setIsOnline] = React.useState(
+    typeof window === "undefined" ? true : window.navigator.onLine
+  );
+  const [cacheHydrated, setCacheHydrated] = React.useState(false);
 
-  const digestPlainForTts = React.useMemo(() => {
-    if (!digest) return "";
-    return stripMarkdownForTts(
-      `${digest.tldr}\n${digest.summary_markdown}`
-    ).slice(0, 50_000);
+  const digestTextForTts = React.useMemo(() => {
+    if (!digest) {
+      return { tldr: "", full: "", combined: "" };
+    }
+    const tldr = stripMarkdownForTts(digest.tldr).trim();
+    const full = stripMarkdownForTts(digest.summary_markdown).trim();
+    const combined = `${tldr}\n${full}`.trim().slice(0, 50_000);
+    return { tldr, full, combined };
   }, [digest]);
 
   const loadDigestList = React.useCallback(async () => {
-    setDigestListLoading(true);
+    setDigestListLoading((prev) => prev && digestSummaries.length === 0);
     try {
       const res = await fetch("/api/newsletters/digests");
       const data = await res.json();
       if (!res.ok) {
-        setDigestSummaries([]);
-        setPendingInWindow(0);
-        setSelectedDigestId(null);
         return;
       }
       const list = (data.digests ?? []) as NewsletterDigestSummary[];
@@ -96,13 +127,11 @@ export function Newsletters() {
         return list[0].id;
       });
     } catch {
-      setDigestSummaries([]);
-      setPendingInWindow(0);
-      setSelectedDigestId(null);
+      // Keep previous digest data visible on transient failures.
     } finally {
       setDigestListLoading(false);
     }
-  }, []);
+  }, [digestSummaries.length]);
 
   const fetchPage = React.useCallback(
     async (offset: number, append: boolean) => {
@@ -120,7 +149,7 @@ export function Newsletters() {
         const data = await res.json();
         if (!res.ok) {
           setError(data.error || res.statusText);
-          if (!append) {
+          if (!append && items.length === 0) {
             setItems([]);
             setTotal(0);
           }
@@ -135,7 +164,7 @@ export function Newsletters() {
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load");
-        if (!append) {
+        if (!append && items.length === 0) {
           setItems([]);
           setTotal(0);
         }
@@ -144,7 +173,7 @@ export function Newsletters() {
         else setLoading(false);
       }
     },
-    [limit, starredOnly, includeUnnecessary]
+    [limit, starredOnly, includeUnnecessary, items.length]
   );
 
   const refreshAll = React.useCallback(async () => {
@@ -159,6 +188,58 @@ export function Newsletters() {
   }, [loadDigestList]);
 
   React.useEffect(() => {
+    const digestsCache = readLocalCache<DigestsCachePayload>(DIGESTS_CACHE_KEY);
+    if (digestsCache?.version === NEWSLETTERS_CACHE_VERSION) {
+      setDigestSummaries(Array.isArray(digestsCache.digestSummaries) ? digestsCache.digestSummaries : []);
+      setPendingInWindow(typeof digestsCache.pendingInWindow === "number" ? digestsCache.pendingInWindow : 0);
+      setSelectedDigestId(digestsCache.selectedDigestId ?? null);
+      setDigest(digestsCache.digest ?? null);
+    }
+
+    const newslettersCache = readLocalCache<NewslettersCachePayload>(NEWSLETTERS_CACHE_KEY);
+    if (
+      newslettersCache?.version === NEWSLETTERS_CACHE_VERSION &&
+      newslettersCache.filters.starredOnly === starredOnly &&
+      newslettersCache.filters.includeUnnecessary === includeUnnecessary
+    ) {
+      setItems(Array.isArray(newslettersCache.items) ? newslettersCache.items : []);
+      setTotal(typeof newslettersCache.total === "number" ? newslettersCache.total : 0);
+      if ((newslettersCache.items?.length ?? 0) > 0) {
+        setInboxEverOpened(true);
+      }
+    }
+    setCacheHydrated(true);
+  }, [includeUnnecessary, starredOnly]);
+
+  React.useEffect(() => {
+    if (!cacheHydrated) return;
+    const payload: DigestsCachePayload = {
+      version: NEWSLETTERS_CACHE_VERSION,
+      savedAt: new Date().toISOString(),
+      digestSummaries,
+      pendingInWindow,
+      selectedDigestId,
+      digest,
+    };
+    writeLocalCache(DIGESTS_CACHE_KEY, payload);
+  }, [cacheHydrated, digest, digestSummaries, pendingInWindow, selectedDigestId]);
+
+  React.useEffect(() => {
+    if (!cacheHydrated) return;
+    const payload: NewslettersCachePayload = {
+      version: NEWSLETTERS_CACHE_VERSION,
+      savedAt: new Date().toISOString(),
+      items: items.slice(0, CACHE_MAX_EMAILS),
+      total,
+      filters: {
+        starredOnly,
+        includeUnnecessary,
+      },
+    };
+    writeLocalCache(NEWSLETTERS_CACHE_KEY, payload);
+  }, [cacheHydrated, includeUnnecessary, items, starredOnly, total]);
+
+  React.useEffect(() => {
     setDigestExpanded(false);
   }, [selectedDigestId]);
 
@@ -168,7 +249,6 @@ export function Newsletters() {
       setDigestDetailLoading(false);
       return;
     }
-    setDigest(null);
     let cancelled = false;
     setDigestDetailLoading(true);
     void (async () => {
@@ -178,11 +258,9 @@ export function Newsletters() {
         if (cancelled) return;
         if (res.ok) {
           setDigest(data as NewsletterDigestRow);
-        } else {
-          setDigest(null);
         }
       } catch {
-        if (!cancelled) setDigest(null);
+        // Keep previous digest body visible until next successful fetch.
       } finally {
         if (!cancelled) setDigestDetailLoading(false);
       }
@@ -196,6 +274,22 @@ export function Newsletters() {
     if (!inboxEverOpened) return;
     void fetchPage(0, false);
   }, [fetchPage, inboxEverOpened]);
+
+  React.useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
+
+  useAppSync(() => {
+    if (!isOnline) return;
+    void refreshAll();
+  });
 
   React.useEffect(() => {
     const onRefresh = () => {
@@ -514,36 +608,16 @@ export function Newsletters() {
               Generated {formatDate(digest.created_at)} · Window{" "}
               {formatDigestPeriod(digest.period_start, digest.period_end)} · {digest.email_count} email(s)
             </p>
-            <div className="rounded-lg border border-[#d0d0d0] bg-[#f6f6f6] p-3 text-sm leading-relaxed text-[#2d2d2d]">
-              <p className="font-medium">TL;DR</p>
-              <p className="mt-1">{digest.tldr}</p>
-            </div>
             <DigestTtsPlayer
               key={digest.id}
               digestId={digest.id}
-              plainText={digestPlainForTts}
+              plainText={digestTextForTts.combined}
+              tldr={digestTextForTts.tldr}
+              summaryMarkdown={digest.summary_markdown}
+              expanded={digestExpanded}
+              onToggleExpanded={() => setDigestExpanded((e) => !e)}
               onError={(m) => setError(m)}
             />
-            <button
-              type="button"
-              onClick={() => setDigestExpanded((e) => !e)}
-              className="inline-flex items-center gap-1 text-sm font-medium text-[#1d4ed8] touch-manipulation"
-            >
-              {digestExpanded ? (
-                <>
-                  <ChevronUp className="h-4 w-4" /> Hide full digest
-                </>
-              ) : (
-                <>
-                  <ChevronDown className="h-4 w-4" /> Show full digest
-                </>
-              )}
-            </button>
-            {digestExpanded && (
-              <div className="rounded-lg border border-[#d0d0d0] bg-[#fafafa] p-3">
-                <SimpleMarkdown source={digest.summary_markdown} />
-              </div>
-            )}
               </>
             )}
           </div>
