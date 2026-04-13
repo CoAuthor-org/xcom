@@ -77,7 +77,7 @@ export function SidebarTrigger() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-[#bebebe] bg-[#e0e0e0] text-[#2d2d2d] shadow-[4px_4px_8px_#bebebe,-4px_-4px_8px_#ffffff] hover:shadow-[inset_4px_4px_8px_#bebebe,inset_-4px_-4px_8px_#ffffff] md:hidden touch-manipulation"
+        className="inline-flex h-11 w-11 shrink-0 items-center justify-center text-[#2d2d2d] md:hidden touch-manipulation"
         aria-label="Open sidebar"
       >
         <PanelLeft className="h-5 w-5" />
@@ -89,7 +89,7 @@ export function SidebarTrigger() {
     <button
       type="button"
       onClick={() => setCollapsed(!collapsed)}
-      className="hidden h-9 w-9 items-center justify-center rounded-md border border-[#bebebe] bg-[#e0e0e0] text-[#2d2d2d] shadow-[4px_4px_8px_#bebebe,-4px_-4px_8px_#ffffff] hover:shadow-[inset_4px_4px_8px_#bebebe,inset_-4px_-4px_8px_#ffffff] md:inline-flex"
+      className="hidden h-9 w-9 items-center justify-center text-[#2d2d2d] md:inline-flex"
       aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
     >
       {collapsed ? (

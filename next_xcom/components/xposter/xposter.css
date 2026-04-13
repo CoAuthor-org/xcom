@@ -405,54 +405,6 @@
   gap: 12px;
 }
 
-/* Neumorphic checkbox */
-.xposter .entry-select-checkbox {
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
-  margin: 0;
-  padding: 0;
-  border: none;
-  border-radius: 10px;
-  background: var(--neo-bg);
-  box-shadow: var(--neo-raised);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: box-shadow 0.2s, transform 0.15s;
-  flex-shrink: 0;
-}
-
-.xposter .entry-select-checkbox:hover {
-  box-shadow: 6px 6px 14px var(--neo-shadow-dark), -6px -6px 14px var(--neo-shadow-light);
-  transform: scale(1.02);
-}
-
-.xposter .entry-select-checkbox.checked {
-  background: #22cc3f;
-  box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.2),
-    inset -2px -2px 4px rgba(255, 255, 255, 0.2);
-}
-
-.xposter .entry-select-checkbox.checked:hover {
-  transform: scale(1.02);
-}
-
-.xposter .entry-select-checkbox .checkbox-inner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.xposter .entry-select-checkbox .checkbox-inner svg {
-  width: 16px;
-  height: 16px;
-  stroke: white;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
-}
-
 .xposter .entry-card.selected {
   box-shadow: var(--neo-raised), 0 0 0 3px var(--neo-accent);
 }
@@ -972,40 +924,6 @@
   cursor: pointer;
   font-size: 0.9rem;
   color: var(--neo-text);
-}
-
-.xposter .is-thread-toggle input,
-.xposter .is-poll-toggle input {
-  display: none;
-}
-
-.xposter .is-thread-toggle::before,
-.xposter .is-poll-toggle::before {
-  content: "";
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
-  background: var(--neo-bg);
-  box-shadow: var(--neo-raised);
-  transition: box-shadow 0.2s;
-}
-
-.xposter .is-thread-toggle:has(input:checked)::before,
-.xposter .is-poll-toggle:has(input:checked)::before {
-  background: var(--neo-accent);
-  box-shadow: var(--neo-inset-sm);
-  color: white;
-  content: "✓";
-  font-size: 14px;
-  font-weight: bold;
-  line-height: 24px;
-  text-align: center;
-}
-
-.xposter .is-thread-toggle::before,
-.xposter .is-poll-toggle::before {
-  flex-shrink: 0;
-  content: "";
 }
 
 .xposter .thread-length-row {

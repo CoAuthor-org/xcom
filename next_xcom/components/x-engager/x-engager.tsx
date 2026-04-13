@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import "./x-engager.css";
 import { QueryBuilderPanel } from "./query-builder-panel";
+import { NeuCheckbox } from "@/components/ui/neu-checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   buildQueryStringFromOptions,
@@ -873,13 +874,14 @@ export function XEngager() {
                   <option value="rejected">Rejected</option>
                 </select>
                 <label className="x-engager-check">
-                  <input
-                    type="checkbox"
+                  <NeuCheckbox
+                    id="xe-today-only"
                     checked={todayOnly}
-                    onChange={(e) => {
+                    onCheckedChange={(on) => {
                       setLoading(true);
-                      setTodayOnly(e.target.checked);
+                      setTodayOnly(on);
                     }}
+                    aria-label="Today only"
                   />
                   Today only
                 </label>
@@ -1055,11 +1057,10 @@ export function XEngager() {
             <div className="xe-query-mode-row">
               <label className="xe-query-mode-label">Query</label>
               <label className="xe-qb-toggle xe-query-mode-toggle">
-                <input
-                  type="checkbox"
+                <NeuCheckbox
+                  id="xe-query-builder-mode"
                   checked={builderActive}
-                  onChange={(e) => {
-                    const on = e.target.checked;
+                  onCheckedChange={(on) => {
                     if (!on) {
                       setBuilderActive(false);
                       return;
@@ -1082,6 +1083,7 @@ export function XEngager() {
                       setBuilderActive(true);
                     }
                   }}
+                  aria-label="Structured query builder (X API v2 operators)"
                 />
                 Structured query builder (X API v2 operators)
               </label>
@@ -1178,11 +1180,10 @@ export function XEngager() {
                       <td>
                         <code>{previewText(row.query_string, 80)}</code>
                       </td>
-                      <td>
-                        <input
-                          type="checkbox"
+                      <td className="xe-query-active-cell">
+                        <NeuCheckbox
                           checked={row.is_active}
-                          onChange={() => toggleQueryActive(row)}
+                          onCheckedChange={() => toggleQueryActive(row)}
                           aria-label={`Active ${row.name}`}
                         />
                       </td>

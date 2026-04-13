@@ -36,15 +36,21 @@ comment on table public.newsletter_emails is 'Newsletter ingest from Zapier webh
 create table if not exists public.newsletter_digests (
   id uuid primary key default gen_random_uuid(),
   created_at timestamptz not null default now(),
+  digest_date date not null,
+  part_number int not null,
   period_start timestamptz not null,
   period_end timestamptz not null,
   tldr text not null,
   summary_markdown text not null,
-  email_count int not null default 0
+  email_count int not null default 0,
+  unique (digest_date, part_number)
 );
 
 create index if not exists newsletter_digests_created_at_idx
   on public.newsletter_digests (created_at desc);
+
+create index if not exists newsletter_digests_digest_date_idx
+  on public.newsletter_digests (digest_date desc, part_number desc);
 
 alter table public.newsletter_emails
   add column if not exists batch_digest_id uuid references public.newsletter_digests (id);

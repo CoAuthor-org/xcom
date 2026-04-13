@@ -18,3 +18,63 @@ body {
   color: var(--foreground);
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
+
+/* App-wide neumorphic checkbox (matches XPoster entry-select-checkbox) */
+.neu-checkbox {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: #e0e0e0;
+  box-shadow: 6px 6px 12px #bebebe, -6px -6px 12px #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: box-shadow 0.2s, transform 0.15s;
+  flex-shrink: 0;
+  color: inherit;
+  font: inherit;
+}
+
+.neu-checkbox:hover:not(:disabled) {
+  box-shadow: 6px 6px 14px #bebebe, -6px -6px 14px #ffffff;
+  transform: scale(1.02);
+}
+
+.neu-checkbox:focus-visible {
+  outline: 2px solid #1d9bf0;
+  outline-offset: 2px;
+}
+
+.neu-checkbox:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.neu-checkbox.checked {
+  background: #22cc3f;
+  box-shadow: inset 4px 4px 8px rgba(0, 0, 0, 0.2), inset -2px -2px 4px rgba(255, 255, 255, 0.2);
+}
+
+.neu-checkbox.checked:hover:not(:disabled) {
+  transform: scale(1.02);
+}
+
+.neu-checkbox-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.neu-checkbox-inner svg {
+  width: 16px;
+  height: 16px;
+  stroke: white;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+}

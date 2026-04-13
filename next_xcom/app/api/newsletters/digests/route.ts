@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSupabaseStorage } from "@/lib/entries";
 import {
   countPendingDigestEmailsInWindow,
-  getLatestNewsletterDigest,
+  listNewsletterDigestSummaries,
   newslettersDbAvailable,
 } from "@/lib/newsletters/db";
 
@@ -20,12 +20,12 @@ export async function GET() {
   try {
     const periodEnd = new Date();
     const periodStart = new Date(periodEnd.getTime() - WINDOW_MS);
-    const [digest, pendingInWindow] = await Promise.all([
-      getLatestNewsletterDigest(),
+    const [digests, pendingInWindow] = await Promise.all([
+      listNewsletterDigestSummaries(80),
       countPendingDigestEmailsInWindow(periodStart.toISOString(), periodEnd.toISOString()),
     ]);
     return NextResponse.json({
-      digest,
+      digests,
       pendingInWindow,
       windowHours: 24,
     });

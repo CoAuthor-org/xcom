@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Github, LogOut, RefreshCw, Save } from "lucide-react";
+import { NeuCheckbox } from "@/components/ui/neu-checkbox";
 import "./blog-poster.css";
 
 const ADDITIONAL_TWEAKS_KEY = "blog-poster-additional-tweaks";
@@ -318,10 +319,11 @@ export function BlogPoster() {
                   ) : (
                     repos.map((r) => (
                       <label key={r.full_name} className="blog-poster-repo-row">
-                        <input
-                          type="checkbox"
+                        <NeuCheckbox
+                          id={`blog-repo-${r.full_name.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
                           checked={trackedSelection.has(r.full_name)}
-                          onChange={() => toggleTracked(r.full_name)}
+                          onCheckedChange={() => toggleTracked(r.full_name)}
+                          aria-label={`Track ${r.full_name}`}
                         />
                         <span className="blog-poster-repo-name">{r.full_name}</span>
                         {r.private && (

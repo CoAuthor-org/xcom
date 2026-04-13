@@ -441,14 +441,8 @@
 .x-engager-check {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 0.85rem;
-  cursor: pointer;
-}
-
-.x-engager-check input {
-  width: 18px;
-  height: 18px;
   cursor: pointer;
 }
 
@@ -621,16 +615,19 @@
 .xe-qb-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
 }
 
-.xe-qb-toggle input {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
+.xe-query-active-cell {
+  text-align: center;
+  vertical-align: middle;
+}
+
+.xe-query-active-cell .neu-checkbox {
+  margin: 0 auto;
 }
 
 .xe-qb-radio-group {

@@ -1,9 +1,10 @@
 import {
   attachEmailsToDigest,
-  insertNewsletterDigest,
+  insertNewsletterDigestAutoPart,
   listEmailsPendingDigestInWindow,
   newslettersDbAvailable,
 } from "@/lib/newsletters/db";
+import { getDigestCalendarDateISO, getDigestTimezone } from "@/lib/newsletters/digest-calendar";
 import { isNewsletterLlmEnabled, summarizeNewsletterBatch } from "@/lib/newsletters/batch-llm";
 const WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -73,7 +74,9 @@ export async function runNewsletterBatchSummarize(): Promise<BatchSummarizeResul
       periodEnd.toISOString()
     );
 
-    const digest = await insertNewsletterDigest({
+    const digestDateStr = getDigestCalendarDateISO(periodEnd, getDigestTimezone());
+    const digest = await insertNewsletterDigestAutoPart({
+      digest_date: digestDateStr,
       period_start: periodStart.toISOString(),
       period_end: periodEnd.toISOString(),
       tldr,

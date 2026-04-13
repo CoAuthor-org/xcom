@@ -1,5 +1,10 @@
 import { supabase } from "@/lib/supabase";
-import type { NewsletterDigestRow, NewsletterEmailRow, NewsletterListItem } from "./types";
+import type {
+  NewsletterDigestRow,
+  NewsletterDigestSummary,
+  NewsletterEmailRow,
+  NewsletterListItem,
+} from "./types";
 
 const TABLE = "newsletter_emails";
 const DIGESTS = "newsletter_digests";
@@ -156,6 +161,81 @@ export async function listNewsletters(params: {
   return { items: rows, total: count ?? 0 };
 }
 
+const ID_PAGE = 1000;
+const BULK_CHUNK = 100;
+
+/** All ids matching the same filter semantics as `listNewsletters` (full result set, paginated server-side). */
+export async function listNewsletterIdsMatchingFilter(params: {
+  starredOnly: boolean;
+  hideUnnecessary: boolean;
+}): Promise<string[]> {
+  if (!supabase) return [];
+  const ids: string[] = [];
+  for (let offset = 0; ; offset += ID_PAGE) {
+    let q = supabase
+      .from(TABLE)
+      .select("id")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, offset + ID_PAGE - 1);
+    if (params.hideUnnecessary) q = q.eq("unnecessary", false);
+    if (params.starredOnly) q = q.eq("starred", true);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as { id: string }[];
+    ids.push(...page.map((r) => r.id));
+    if (page.length < ID_PAGE) break;
+  }
+  return ids;
+}
+
+/** Every newsletter id in the table (ignores list filters). */
+export async function listAllNewsletterIds(): Promise<string[]> {
+  if (!supabase) return [];
+  const ids: string[] = [];
+  for (let offset = 0; ; offset += ID_PAGE) {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("id")
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(offset, offset + ID_PAGE - 1);
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as { id: string }[];
+    ids.push(...page.map((r) => r.id));
+    if (page.length < ID_PAGE) break;
+  }
+  return ids;
+}
+
+export async function patchNewslettersBulk(
+  ids: string[],
+  patch: { starred?: boolean; unnecessary?: boolean }
+): Promise<void> {
+  if (!supabase || ids.length === 0) return;
+  const updates: Record<string, unknown> = {};
+  if (typeof patch.starred === "boolean") updates.starred = patch.starred;
+  if (typeof patch.unnecessary === "boolean") updates.unnecessary = patch.unnecessary;
+  if (Object.keys(updates).length === 0) return;
+  for (let i = 0; i < ids.length; i += BULK_CHUNK) {
+    const chunk = ids.slice(i, i + BULK_CHUNK);
+    const { error } = await supabase.from(TABLE).update(updates).in("id", chunk);
+    if (error) throw new Error(error.message);
+  }
+}
+
+export async function deleteNewslettersByIds(ids: string[]): Promise<number> {
+  if (!supabase || ids.length === 0) return 0;
+  let n = 0;
+  for (let i = 0; i < ids.length; i += BULK_CHUNK) {
+    const chunk = ids.slice(i, i + BULK_CHUNK);
+    const { data, error } = await supabase.from(TABLE).delete().in("id", chunk).select("id");
+    if (error) throw new Error(error.message);
+    n += data?.length ?? 0;
+  }
+  return n;
+}
+
 export async function deleteUnnecessaryNewsletters(): Promise<number> {
   if (!supabase) throw new Error("Supabase not configured");
   const { data, error } = await supabase
@@ -209,7 +289,31 @@ export async function countPendingDigestEmailsInWindow(
   return count ?? 0;
 }
 
+function isUniqueViolation(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const o = e as { code?: string; message?: string };
+  if (o.code === "23505") return true;
+  const m = o.message ?? "";
+  return m.includes("duplicate") || m.includes("unique");
+}
+
+export async function getNextDigestPartNumber(digestDate: string): Promise<number> {
+  if (!supabase) throw new Error("Supabase not configured");
+  const { data, error } = await supabase
+    .from(DIGESTS)
+    .select("part_number")
+    .eq("digest_date", digestDate)
+    .order("part_number", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  const max = data?.part_number;
+  return typeof max === "number" ? max + 1 : 1;
+}
+
 export async function insertNewsletterDigest(row: {
+  digest_date: string;
+  part_number: number;
   period_start: string;
   period_end: string;
   tldr: string;
@@ -220,6 +324,8 @@ export async function insertNewsletterDigest(row: {
   const { data, error } = await supabase
     .from(DIGESTS)
     .insert({
+      digest_date: row.digest_date,
+      part_number: row.part_number,
       period_start: row.period_start,
       period_end: row.period_end,
       tldr: row.tldr,
@@ -228,8 +334,54 @@ export async function insertNewsletterDigest(row: {
     })
     .select("*")
     .single();
-  if (error) throw new Error(error.message);
+  if (error) {
+    const err = new Error(error.message) as Error & { code?: string };
+    err.code = error.code;
+    throw err;
+  }
   return data as NewsletterDigestRow;
+}
+
+/**
+ * Assigns the next part number for `digest_date`, retries on unique races.
+ */
+export async function insertNewsletterDigestAutoPart(row: {
+  digest_date: string;
+  period_start: string;
+  period_end: string;
+  tldr: string;
+  summary_markdown: string;
+  email_count: number;
+}): Promise<NewsletterDigestRow> {
+  const maxAttempts = 8;
+  for (let a = 0; a < maxAttempts; a++) {
+    const partNumber = await getNextDigestPartNumber(row.digest_date);
+    try {
+      return await insertNewsletterDigest({
+        ...row,
+        part_number: partNumber,
+      });
+    } catch (e) {
+      if (!isUniqueViolation(e) || a === maxAttempts - 1) {
+        throw e;
+      }
+    }
+  }
+  throw new Error("Could not insert digest version");
+}
+
+export async function listNewsletterDigestSummaries(
+  limit: number
+): Promise<NewsletterDigestSummary[]> {
+  if (!supabase) return [];
+  const lim = Math.min(Math.max(limit, 1), 200);
+  const { data, error } = await supabase
+    .from(DIGESTS)
+    .select("id, created_at, digest_date, part_number, email_count, tldr")
+    .order("created_at", { ascending: false })
+    .limit(lim);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as NewsletterDigestSummary[];
 }
 
 export async function attachEmailsToDigest(emailIds: string[], digestId: string): Promise<void> {
@@ -240,18 +392,6 @@ export async function attachEmailsToDigest(emailIds: string[], digestId: string)
     .update({ batch_digest_id: digestId })
     .in("id", emailIds);
   if (error) throw new Error(error.message);
-}
-
-export async function getLatestNewsletterDigest(): Promise<NewsletterDigestRow | null> {
-  if (!supabase) return null;
-  const { data, error } = await supabase
-    .from(DIGESTS)
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  return (data as NewsletterDigestRow) ?? null;
 }
 
 export async function getNewsletterDigestById(id: string): Promise<NewsletterDigestRow | null> {

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Copy, Check, Pencil, ImagePlus, ImageOff, Trash2 } from "lucide-react";
+import { NeuCheckbox } from "@/components/ui/neu-checkbox";
 import "./xposter.css";
 
 const SERVER_UNREACHABLE_MSG =
@@ -896,13 +897,14 @@ export function XPoster() {
               </div>
               <div className="is-thread-row">
                 <label className="is-thread-toggle">
-                  <input
-                    type="checkbox"
+                  <NeuCheckbox
+                    id="xposter-is-thread"
                     checked={isThread}
-                    onChange={(e) => {
-                      setIsThread(e.target.checked);
-                      if (e.target.checked) setIsPoll(false);
+                    onCheckedChange={(on) => {
+                      setIsThread(on);
+                      if (on) setIsPoll(false);
                     }}
+                    aria-label="Is thread"
                   />
                   <span>Is thread</span>
                 </label>
@@ -926,13 +928,14 @@ export function XPoster() {
               )}
               <div className="is-poll-row">
                 <label className="is-poll-toggle">
-                  <input
-                    type="checkbox"
+                  <NeuCheckbox
+                    id="xposter-is-poll"
                     checked={isPoll}
-                    onChange={(e) => {
-                      setIsPoll(e.target.checked);
-                      if (e.target.checked) setIsThread(false);
+                    onCheckedChange={(on) => {
+                      setIsPoll(on);
+                      if (on) setIsThread(false);
                     }}
+                    aria-label="Is poll"
                   />
                   <span>Is poll</span>
                 </label>
@@ -1355,24 +1358,14 @@ function EntryCard({
     >
       <div className={`entry-view${selectable ? " has-checkbox" : ""}`}>
         {selectable && (
-          <button
-            type="button"
-            className={`entry-select-checkbox ${selected ? "checked" : ""}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleSelect?.();
-            }}
-            title={selected ? "Deselect" : "Select"}
-            aria-pressed={selected}
-          >
-            <span className="checkbox-inner">
-              {selected && (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              )}
-            </span>
-          </button>
+          <div className="inline-flex shrink-0" onClick={(e) => e.stopPropagation()}>
+            <NeuCheckbox
+              checked={Boolean(selected)}
+              onCheckedChange={() => onToggleSelect?.()}
+              title={selected ? "Deselect" : "Select"}
+              aria-label={selected ? "Deselect" : "Select"}
+            />
+          </div>
         )}
         <div className="entry-view-body">
         {nextQueue && (

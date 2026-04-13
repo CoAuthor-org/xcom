@@ -32,9 +32,21 @@ export interface NewsletterListItem {
   batch_digest_id: string | null;
 }
 
+/** List row (no full markdown) for version picker. */
+export interface NewsletterDigestSummary {
+  id: string;
+  created_at: string;
+  digest_date: string;
+  part_number: number;
+  email_count: number;
+  tldr: string;
+}
+
 export interface NewsletterDigestRow {
   id: string;
   created_at: string;
+  digest_date: string;
+  part_number: number;
   period_start: string;
   period_end: string;
   tldr: string;

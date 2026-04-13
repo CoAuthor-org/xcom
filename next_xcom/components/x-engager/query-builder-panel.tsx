@@ -5,6 +5,7 @@ import {
   buildQueryStringFromOptions,
   type QueryOptionsV1,
 } from "@/lib/x-query-assembler";
+import { NeuCheckbox } from "@/components/ui/neu-checkbox";
 import "./x-engager.css";
 
 function commaToWords(s: string): string[] {
@@ -138,12 +139,11 @@ export function QueryBuilderPanel({
 
       <div className="xe-qb-row">
         <label className="xe-qb-toggle">
-          <input
-            type="checkbox"
+          <NeuCheckbox
+            id={`${idPrefix}-replies-toggle`}
             checked={value.repliesToggleOn}
-            onChange={(e) =>
-              patch({ repliesToggleOn: e.target.checked })
-            }
+            onCheckedChange={(on) => patch({ repliesToggleOn: on })}
+            aria-label="Replies filter (show options when on)"
           />
           Replies filter (show options when on)
         </label>
@@ -173,12 +173,11 @@ export function QueryBuilderPanel({
 
       <div className="xe-qb-row">
         <label className="xe-qb-toggle">
-          <input
-            type="checkbox"
+          <NeuCheckbox
+            id={`${idPrefix}-links-toggle`}
             checked={value.linksToggleOn}
-            onChange={(e) =>
-              patch({ linksToggleOn: e.target.checked })
-            }
+            onCheckedChange={(on) => patch({ linksToggleOn: on })}
+            aria-label="Links filter (show options when on)"
           />
           Links filter (show options when on)
         </label>
