@@ -191,6 +191,37 @@
   background: rgba(0, 0, 0, 0.04);
 }
 
+.blog-poster-company-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.blog-poster-company-row:last-child {
+  border-bottom: none;
+}
+
+.blog-poster-company-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--neo-text);
+}
+
+.blog-poster-company-meta {
+  font-size: 0.78rem;
+  color: var(--neo-text-muted);
+  margin-top: 2px;
+}
+
+.blog-poster-company-status {
+  font-size: 0.75rem;
+  color: var(--neo-accent);
+  margin-top: 4px;
+}
+
 .blog-poster-repo-name {
   flex: 1;
   color: var(--neo-text);
@@ -326,4 +357,30 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.blog-poster-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 50;
+}
+
+.blog-poster-modal-card {
+  width: 100%;
+  max-width: 520px;
+  border-radius: 20px;
+  padding: 20px;
+  background: var(--neo-bg);
+  box-shadow: var(--neo-raised);
+}
+
+.blog-poster-modal-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--neo-text);
 }

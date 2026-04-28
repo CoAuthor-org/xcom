@@ -27,7 +27,7 @@ export const NAV_ITEM_IDS: readonly NavItemId[] = [
 
 export const NAV_ITEMS: { id: NavItemId; label: string; icon: React.ElementType }[] = [
   { id: "xposter", label: "X Poster", icon: PenSquare },
-  { id: "blogposter", label: "Blog Poster", icon: FileText },
+  { id: "blogposter", label: "Opensource", icon: FileText },
   { id: "xengager", label: "X Engager", icon: MessageCircle },
   { id: "scouter", label: "Scouter", icon: Radar },
   { id: "newsletters", label: "Newsletters", icon: Newspaper },

@@ -1,12 +1,17 @@
 "use client";
 
 import * as React from "react";
-import { Github, LogOut, RefreshCw, Save } from "lucide-react";
+import { Building2, Github, Loader2, LogOut, Plus, RefreshCw, Save, X } from "lucide-react";
 import { NeuCheckbox } from "@/components/ui/neu-checkbox";
 import { useAppSync } from "@/lib/app-sync";
+import {
+  createCompanyAction,
+  fetchCompanyRepos,
+  listCompaniesAction,
+  syncReposToSupabase,
+} from "@/actions/github-actions";
+import type { CompanyRow } from "@/lib/crm/types";
 import "./blog-poster.css";
-
-const ADDITIONAL_TWEAKS_KEY = "blog-poster-additional-tweaks";
 
 interface GitHubRepoItem {
   full_name: string;
@@ -33,10 +38,14 @@ interface CommitDraft {
   created_at: string;
 }
 
-export function BlogPoster() {
-  const [notesFiles, setNotesFiles] = React.useState<string[]>([]);
-  const [selectedNote, setSelectedNote] = React.useState("");
+interface CompanyFormState {
+  name: string;
+  category: string;
+  github_org_url: string;
+  website_url: string;
+}
 
+export function Opensource() {
   const [githubStatus, setGithubStatus] = React.useState<{
     configured: boolean;
     connected: boolean;
@@ -56,18 +65,21 @@ export function BlogPoster() {
   const [drafts, setDrafts] = React.useState<CommitDraft[]>([]);
   const [draftsLoading, setDraftsLoading] = React.useState(false);
   const [draftEdits, setDraftEdits] = React.useState<Record<string, string>>({});
-
-  const [additionalTweaks, setAdditionalTweaks] = React.useState("");
-
-  const loadNotesFiles = React.useCallback(async () => {
-    try {
-      const res = await fetch("/notes/files");
-      const data = await res.json();
-      setNotesFiles(data.files || []);
-    } catch {
-      setNotesFiles([]);
-    }
-  }, []);
+  const [companies, setCompanies] = React.useState<CompanyRow[]>([]);
+  const [companiesLoading, setCompaniesLoading] = React.useState(false);
+  const [companiesError, setCompaniesError] = React.useState<string | null>(null);
+  const [syncingCompanyId, setSyncingCompanyId] = React.useState<string | null>(null);
+  const [syncMessageByCompany, setSyncMessageByCompany] = React.useState<Record<string, string>>(
+    {}
+  );
+  const [isAddCompanyOpen, setIsAddCompanyOpen] = React.useState(false);
+  const [creatingCompany, setCreatingCompany] = React.useState(false);
+  const [companyForm, setCompanyForm] = React.useState<CompanyFormState>({
+    name: "",
+    category: "",
+    github_org_url: "",
+    website_url: "",
+  });
 
   const loadGithubStatus = React.useCallback(async () => {
     try {
@@ -142,10 +154,25 @@ export function BlogPoster() {
     }
   }, []);
 
+  const loadCompanies = React.useCallback(async () => {
+    setCompaniesLoading(true);
+    setCompaniesError(null);
+    try {
+      const rows = await listCompaniesAction();
+      setCompanies(rows);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load companies";
+      setCompaniesError(message);
+      setCompanies([]);
+    } finally {
+      setCompaniesLoading(false);
+    }
+  }, []);
+
   React.useEffect(() => {
-    loadNotesFiles();
     loadGithubStatus();
-  }, [loadNotesFiles, loadGithubStatus]);
+    void loadCompanies();
+  }, [loadGithubStatus, loadCompanies]);
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -171,19 +198,8 @@ export function BlogPoster() {
       void loadReposAndTracking();
       void loadDrafts();
     }
+    void loadCompanies();
   });
-
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      setAdditionalTweaks(localStorage.getItem(ADDITIONAL_TWEAKS_KEY) ?? "");
-    }
-  }, []);
-
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(ADDITIONAL_TWEAKS_KEY, additionalTweaks);
-    }
-  }, [additionalTweaks]);
 
   const toggleTracked = (fullName: string) => {
     setTrackedSelection((prev) => {
@@ -241,27 +257,90 @@ export function BlogPoster() {
     setBlogDbError(null);
   };
 
+  const handleCreateCompany = async () => {
+    setCreatingCompany(true);
+    setCompaniesError(null);
+    try {
+      const created = await createCompanyAction({
+        name: companyForm.name,
+        category: companyForm.category || null,
+        github_org_url: companyForm.github_org_url || null,
+        website_url: companyForm.website_url || null,
+      });
+      setCompanies((prev) => [created, ...prev]);
+      setCompanyForm({
+        name: "",
+        category: "",
+        github_org_url: "",
+        website_url: "",
+      });
+      setIsAddCompanyOpen(false);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to create company";
+      setCompaniesError(message);
+    } finally {
+      setCreatingCompany(false);
+    }
+  };
+
+  const handleSyncCompanyRepos = async (company: CompanyRow) => {
+    console.info("[opensource] syncRepos:click", {
+      companyId: company.id,
+      companyName: company.name,
+      githubOrgUrl: company.github_org_url,
+    });
+    if (!company.github_org_url?.trim()) {
+      console.warn("[opensource] syncRepos:missing-org", {
+        companyId: company.id,
+        companyName: company.name,
+      });
+      setSyncMessageByCompany((prev) => ({
+        ...prev,
+        [company.id]: "Add a GitHub org URL or org name for this company first.",
+      }));
+      return;
+    }
+    setSyncingCompanyId(company.id);
+    setSyncMessageByCompany((prev) => ({
+      ...prev,
+      [company.id]: "Syncing repositories...",
+    }));
+    try {
+      const { repos } = await fetchCompanyRepos(company.github_org_url);
+      console.info("[opensource] syncRepos:fetched-from-github", {
+        companyId: company.id,
+        repoCount: repos.length,
+      });
+      const { syncedCount } = await syncReposToSupabase(company.id, repos);
+      console.info("[opensource] syncRepos:upserted-to-supabase", {
+        companyId: company.id,
+        syncedCount,
+      });
+      setSyncMessageByCompany((prev) => ({
+        ...prev,
+        [company.id]: `Synced ${syncedCount} repositories`,
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Repository sync failed";
+      console.error("[opensource] syncRepos:error", {
+        companyId: company.id,
+        message,
+        error,
+      });
+      setSyncMessageByCompany((prev) => ({
+        ...prev,
+        [company.id]: message,
+      }));
+    } finally {
+      setSyncingCompanyId(null);
+    }
+  };
+
   const webhookUrl = origin ? `${origin}/api/webhooks/github` : "/api/webhooks/github";
 
   return (
     <div className="blog-poster">
       <div className="mx-auto max-w-2xl space-y-6">
-        <div className="blog-poster-card">
-          <label className="blog-poster-label">Notes</label>
-          <select
-            value={selectedNote}
-            onChange={(e) => setSelectedNote(e.target.value)}
-            className="blog-poster-select"
-          >
-            <option value="">Select a note file...</option>
-            {notesFiles.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-        </div>
-
         <div className="blog-poster-card">
           <div className="mb-4 flex items-center justify-between">
             <label className="blog-poster-label mb-0">GitHub</label>
@@ -356,6 +435,73 @@ export function BlogPoster() {
           )}
         </div>
 
+        <div className="blog-poster-card">
+          <div className="mb-4 flex items-center justify-between">
+            <label className="blog-poster-label mb-0 flex items-center gap-2">
+              <Building2 className="h-4 w-4" />
+              CRM Companies
+            </label>
+            <button
+              type="button"
+              className="blog-poster-primary-btn"
+              onClick={() => setIsAddCompanyOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Add Company
+            </button>
+          </div>
+
+          {companiesError && <p className="blog-poster-warning mb-3">{companiesError}</p>}
+          {!githubStatus?.connected && (
+            <p className="blog-poster-muted mb-3">
+              Connect GitHub to enable repository sync for companies.
+            </p>
+          )}
+
+          <div className="blog-poster-repo-scroller neo-inset">
+            {companiesLoading ? (
+              <p className="blog-poster-muted p-3">Loading companies...</p>
+            ) : companies.length === 0 ? (
+              <p className="blog-poster-muted p-3">No companies yet. Add your first company.</p>
+            ) : (
+              companies.map((company) => {
+                const isSyncing = syncingCompanyId === company.id;
+                return (
+                  <div key={company.id} className="blog-poster-company-row">
+                    <div className="min-w-0">
+                      <p className="blog-poster-company-name">{company.name}</p>
+                      <p className="blog-poster-company-meta">
+                        {company.category || "Uncategorized"}
+                        {company.github_org_url ? ` • ${company.github_org_url}` : ""}
+                      </p>
+                      {syncMessageByCompany[company.id] && (
+                        <p className="blog-poster-company-status">
+                          {syncMessageByCompany[company.id]}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="blog-poster-secondary-btn"
+                      onClick={() => handleSyncCompanyRepos(company)}
+                      disabled={!githubStatus?.connected || isSyncing}
+                    >
+                      {isSyncing ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Syncing...
+                        </>
+                      ) : (
+                        "Sync Repos"
+                      )}
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
         {githubStatus?.connected && !blogDbError && (
           <div className="blog-poster-card">
             <div className="mb-3 flex items-center justify-between">
@@ -443,17 +589,87 @@ export function BlogPoster() {
           </div>
         )}
 
-        <div className="blog-poster-card">
-          <label className="blog-poster-label">Additional tweaks</label>
-          <textarea
-            value={additionalTweaks}
-            onChange={(e) => setAdditionalTweaks(e.target.value)}
-            placeholder="Paste any additional context or tweaks here..."
-            rows={8}
-            className="blog-poster-textarea"
-          />
-        </div>
       </div>
+
+      {isAddCompanyOpen && (
+        <div className="blog-poster-modal-backdrop">
+          <div className="blog-poster-modal-card">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="blog-poster-modal-title">Add company</h3>
+              <button
+                type="button"
+                className="blog-poster-icon-btn"
+                onClick={() => setIsAddCompanyOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="blog-poster-label">Name *</label>
+                <input
+                  className="blog-poster-select"
+                  value={companyForm.name}
+                  onChange={(event) =>
+                    setCompanyForm((prev) => ({ ...prev, name: event.target.value }))
+                  }
+                  placeholder="Acme Labs"
+                />
+              </div>
+              <div>
+                <label className="blog-poster-label">Category</label>
+                <input
+                  className="blog-poster-select"
+                  value={companyForm.category}
+                  onChange={(event) =>
+                    setCompanyForm((prev) => ({ ...prev, category: event.target.value }))
+                  }
+                  placeholder="YC / Silicon Valley / GSoC"
+                />
+              </div>
+              <div>
+                <label className="blog-poster-label">GitHub org URL or name</label>
+                <input
+                  className="blog-poster-select"
+                  value={companyForm.github_org_url}
+                  onChange={(event) =>
+                    setCompanyForm((prev) => ({ ...prev, github_org_url: event.target.value }))
+                  }
+                  placeholder="https://github.com/vercel or vercel"
+                />
+              </div>
+              <div>
+                <label className="blog-poster-label">Website URL</label>
+                <input
+                  className="blog-poster-select"
+                  value={companyForm.website_url}
+                  onChange={(event) =>
+                    setCompanyForm((prev) => ({ ...prev, website_url: event.target.value }))
+                  }
+                  placeholder="https://example.com"
+                />
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  className="blog-poster-secondary-btn"
+                  onClick={() => setIsAddCompanyOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="blog-poster-primary-btn"
+                  onClick={handleCreateCompany}
+                  disabled={creatingCompany || !companyForm.name.trim()}
+                >
+                  {creatingCompany ? "Creating..." : "Create company"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -12,7 +12,7 @@ import {
 import { useLocalStorageStringState } from "@/lib/use-local-storage-state";
 import { SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { XPoster } from "@/components/xposter/xposter";
-import { BlogPoster } from "@/components/blog-poster/blog-poster";
+import { Opensource } from "@/components/blog-poster/blog-poster";
 import { XEngager } from "@/components/x-engager/x-engager";
 import { ScouterDashboard } from "@/components/scouter/scouter-dashboard";
 import { Newsletters } from "@/components/newsletters/newsletters";
@@ -57,7 +57,7 @@ export default function Home() {
         </header>
         <div className="flex-1 overflow-auto bg-[#e0e0e0]">
           {activeId === "xposter" && <XPoster />}
-          {activeId === "blogposter" && <BlogPoster />}
+          {activeId === "blogposter" && <Opensource />}
           {activeId === "xengager" && <XEngager />}
           {activeId === "scouter" && <ScouterDashboard />}
           {activeId === "newsletters" && <Newsletters />}
